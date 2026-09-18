@@ -17,14 +17,34 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Junta el usuario de auth con su fila en profiles (rol, plan).
+  // Si el perfil todavía no existe (puede tardar un instante tras
+  // registrarse, por el trigger de la base de datos), reintenta un par
+  // de veces antes de rendirse con valores por defecto.
+  async function cargarUsuarioConPerfil(authUser) {
+    if (!authUser) return null
+    for (let intento = 0; intento < 3; intento++) {
+      const { data: perfil } = await supabase
+        .from('profiles')
+        .select('rol, plan')
+        .eq('id', authUser.id)
+        .maybeSingle()
+      if (perfil) {
+        return { id: authUser.id, email: authUser.email, rol: perfil.rol, plan: perfil.plan }
+      }
+      await new Promise((r) => setTimeout(r, 500))
+    }
+    return { id: authUser.id, email: authUser.email, rol: 'usuario', plan: 'basico' }
+  }
+
   useEffect(() => {
     if (isSupabaseConfigured) {
-      supabase.auth.getSession().then(({ data }) => {
-        setUser(data.session?.user ?? null)
+      supabase.auth.getSession().then(async ({ data }) => {
+        setUser(await cargarUsuarioConPerfil(data.session?.user ?? null))
         setLoading(false)
       })
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null)
+      const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        setUser(await cargarUsuarioConPerfil(session?.user ?? null))
       })
       return () => sub.subscription.unsubscribe()
     } else {
@@ -39,7 +59,9 @@ export function AuthProvider({ children }) {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
-      return data.user
+      const usuarioConPerfil = await cargarUsuarioConPerfil(data.user)
+      setUser(usuarioConPerfil)
+      return usuarioConPerfil
     }
     const users = readLocalUsers()
     if (users.some((u) => u.email === email)) {
@@ -58,7 +80,9 @@ export function AuthProvider({ children }) {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      return data.user
+      const usuarioConPerfil = await cargarUsuarioConPerfil(data.user)
+      setUser(usuarioConPerfil)
+      return usuarioConPerfil
     }
     const users = readLocalUsers()
     // Usuario administrador de demostración
