@@ -90,9 +90,16 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="text-xs mt-4 text-center" style={{ color: 'var(--color-text-dim)' }}>
-            Demo administrador: admin@smartenergy.com / admin123
-          </p>
+          <div className="mt-4 rounded-lg p-3" style={{ background: 'var(--color-surface-2)', border: '1px dashed var(--color-border)' }}>
+            <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text)' }}>
+              Cuenta de prueba (temporal, solo en este navegador)
+            </p>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
+              Mientras no esté conectado Supabase, usa <b>admin@smartenergy.com</b> / <b>admin123</b> para
+              entrar como administrador y probar el panel. No es un correo real ni se envía nada:
+              esta cuenta desaparecerá en cuanto conectemos la base de datos real.
+            </p>
+          </div>
         </div>
       </div>
     </div>
