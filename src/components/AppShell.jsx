@@ -27,10 +27,14 @@ export default function AppShell() {
           </div>
           <span className="font-semibold text-sm" style={{ color: 'var(--color-text)' }}>{cfg.appName}</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {isAdmin && (
-            <NavLink to="/admin" className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-warning)' }}>
-              <Shield size={16} /> Admin
+            <NavLink
+              to="/admin"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ background: 'var(--color-warning)', color: '#1a1204' }}
+            >
+              <Shield size={14} /> Panel Admin
             </NavLink>
           )}
           <button onClick={signOut} className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-dim)' }}>
@@ -38,6 +42,18 @@ export default function AppShell() {
           </button>
         </div>
       </header>
+
+      {isAdmin && (
+        <div
+          className="max-w-lg mx-auto w-full px-4 mt-3 flex items-center justify-between rounded-xl px-3 py-2"
+          style={{ background: 'rgba(245,165,36,0.12)', border: '1px solid var(--color-warning)' }}
+        >
+          <span className="text-xs" style={{ color: 'var(--color-warning)' }}>Sesión de administrador activa</span>
+          <NavLink to="/admin" className="text-xs font-semibold underline" style={{ color: 'var(--color-warning)' }}>
+            Ir al panel →
+          </NavLink>
+        </div>
+      )}
 
       <main className="flex-1 px-4 pt-4 pb-24 max-w-lg mx-auto w-full">
         <Outlet />
