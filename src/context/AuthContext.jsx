@@ -17,18 +17,14 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Junta el usuario de auth con su fila en profiles (rol, plan).
-  // Si el perfil todavía no existe (puede tardar un instante tras
-  // registrarse, por el trigger de la base de datos), reintenta un par
-  // de veces antes de rendirse con valores por defecto.
+  // Junta el usuario de auth con su fila en profiles (rol, plan),
+  // llamando a una función de Supabase (RPC) que evita problemas de
+  // permisos (RLS) al leer el perfil.
   async function cargarUsuarioConPerfil(authUser) {
     if (!authUser) return null
     for (let intento = 0; intento < 3; intento++) {
-      const { data: perfil } = await supabase
-        .from('profiles')
-        .select('rol, plan')
-        .eq('id', authUser.id)
-        .maybeSingle()
+      const { data: filas, error } = await supabase.rpc('obtener_mi_perfil')
+      const perfil = !error && filas && filas.length > 0 ? filas[0] : null
       if (perfil) {
         return { id: authUser.id, email: authUser.email, rol: perfil.rol, plan: perfil.plan }
       }
