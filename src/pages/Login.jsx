@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Zap } from 'lucide-react'
+import { Zap, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { signIn, signUp } = useAuth()
@@ -71,12 +72,23 @@ export default function Login() {
             </div>
             <div>
               <label className="text-xs" style={{ color: 'var(--color-text-dim)' }}>Contraseña</label>
-              <input
-                type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none"
-                style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
-                placeholder="••••••••"
-              />
+              <div className="relative mt-1">
+                <input
+                  type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-lg pl-3 pr-10 py-2 text-sm outline-none"
+                  style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--color-text-dim)' }}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             {error && <p className="text-xs" style={{ color: 'var(--color-danger)' }}>{error}</p>}
@@ -89,17 +101,6 @@ export default function Login() {
               {loading ? 'Procesando...' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
             </button>
           </form>
-
-          <div className="mt-4 rounded-lg p-3" style={{ background: 'var(--color-surface-2)', border: '1px dashed var(--color-border)' }}>
-            <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--color-text)' }}>
-              Cuenta de prueba (temporal, solo en este navegador)
-            </p>
-            <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
-              Mientras no esté conectado Supabase, usa <b>admin@smartenergy.com</b> / <b>admin123</b> para
-              entrar como administrador y probar el panel. No es un correo real ni se envía nada:
-              esta cuenta desaparecerá en cuanto conectemos la base de datos real.
-            </p>
-          </div>
         </div>
       </div>
     </div>
