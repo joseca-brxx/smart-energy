@@ -12,6 +12,7 @@ export default function Devices() {
   const [equipoReal, setEquipoReal] = useState(null)
   const [ultimaMedicion, setUltimaMedicion] = useState(null)
   const [cambiando, setCambiando] = useState(false)
+  const [estadosDemo, setEstadosDemo] = useState({}) // overrides locales de encendido/apagado por id
 
   async function cargarEquipoReal() {
     if (!isSupabaseConfigured) return
@@ -109,6 +110,7 @@ export default function Devices() {
         {/* Equipos de demostración */}
         {equiposDemo.map((d) => {
           const reading = getRealtimeReading(d)
+          const encendido = estadosDemo[d.id] ?? reading.estado === 'encendido'
           return (
             <div key={d.id} className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
               <div className="flex items-center justify-between">
@@ -119,12 +121,20 @@ export default function Devices() {
                     <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Modo demostración</p>
                   </div>
                 </div>
-                <span className="text-[11px] px-2 py-1 rounded-lg" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
-                  {reading.estado === 'encendido' ? 'Encendido' : 'Apagado'}
-                </span>
+                <button
+                  onClick={() => setEstadosDemo((s) => ({ ...s, [d.id]: !encendido }))}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{
+                    background: encendido ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                    color: encendido ? '#0b1220' : 'var(--color-text-dim)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <Power size={12} /> {encendido ? 'Encendido' : 'Apagado'}
+                </button>
               </div>
               <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
-                {reading.potenciaKw.toFixed(2)} kW en este momento
+                {encendido ? `${reading.potenciaKw.toFixed(2)} kW en este momento` : '0.00 kW (apagado)'}
               </p>
             </div>
           )
