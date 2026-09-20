@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { AlertTriangle, TrendingUp, Zap } from 'lucide-react'
 import { getDevices, getRealtimeReading, getHistorial, totalKwh } from '../lib/demoData'
 import { getConfig } from '../lib/config'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 
 const RANGOS = [
   { id: 'diario', label: 'Diario', dias: 1 },
@@ -10,15 +11,49 @@ const RANGOS = [
   { id: 'mensual', label: 'Mensual', dias: 30 },
 ]
 
+// Los equipos de demostración (todo menos el real) siguen viniendo del
+// motor local. El historial de consumo, por ahora, también se calcula
+// solo con estos — cuando el ESP32 lleve varios días transmitiendo,
+// se puede sumar el mismo cálculo para el equipo real.
+const devicesDemo = getDevices().filter((d) => d.source !== 'real')
+
 export default function Dashboard() {
   const [rango, setRango] = useState('semanal')
+  const [equipoReal, setEquipoReal] = useState(null)
+  const [medicionReal, setMedicionReal] = useState(null)
   const cfg = getConfig()
-  const devices = getDevices()
   const dias = RANGOS.find((r) => r.id === rango).dias
+
+  async function cargarEquipoReal() {
+    if (!isSupabaseConfigured) return
+    const { data: equipo } = await supabase
+      .from('equipos')
+      .select('id, nombre')
+      .eq('fuente', 'real')
+      .maybeSingle()
+    setEquipoReal(equipo)
+
+    if (equipo) {
+      const { data: medicion } = await supabase
+        .from('mediciones')
+        .select('potencia_w, creado_en')
+        .eq('device_id', equipo.id)
+        .order('creado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setMedicionReal(medicion)
+    }
+  }
+
+  useEffect(() => {
+    cargarEquipoReal()
+    const intervalo = setInterval(cargarEquipoReal, 5000) // se refresca solo cada 5s
+    return () => clearInterval(intervalo)
+  }, [])
 
   const historialTotal = useMemo(() => {
     const porDia = {}
-    devices.forEach((d) => {
+    devicesDemo.forEach((d) => {
       getHistorial(d, dias).forEach((h) => {
         porDia[h.fecha] = (porDia[h.fecha] || 0) + h.kwh
       })
@@ -29,13 +64,30 @@ export default function Dashboard() {
   const kwhTotalPeriodo = historialTotal.reduce((a, h) => a + h.kwh, 0)
   const costoTotalPeriodo = kwhTotalPeriodo * cfg.tarifaPorKwh
 
-  const lecturas = devices.map((d) => ({ device: d, reading: getRealtimeReading(d) }))
+  // Lecturas de los equipos de demostración
+  const lecturasDemo = devicesDemo.map((d) => ({ device: d, reading: getRealtimeReading(d) }))
+
+  // Lectura del equipo real, solo si ya llegó al menos un dato del ESP32
+  const lecturaReal =
+    equipoReal && medicionReal
+      ? {
+          device: { id: equipoReal.id, nombre: equipoReal.nombre, source: 'real' },
+          reading: {
+            potenciaKw: medicionReal.potencia_w / 1000,
+            estado: medicionReal.potencia_w > 20 ? 'encendido' : 'apagado',
+          },
+        }
+      : null
+
+  const lecturas = lecturaReal ? [...lecturasDemo, lecturaReal] : lecturasDemo
   const consumoInstantaneoKw = lecturas.reduce((a, l) => a + l.reading.potenciaKw, 0)
 
   const mayorConsumo = [...lecturas].sort((a, b) => b.reading.potenciaKw - a.reading.potenciaKw)[0]
-  const porcentajeMayor = Math.round((mayorConsumo.reading.potenciaKw / consumoInstantaneoKw) * 100)
+  const porcentajeMayor = consumoInstantaneoKw > 0
+    ? Math.round((mayorConsumo.reading.potenciaKw / consumoInstantaneoKw) * 100)
+    : 0
 
-  const alertas = devices
+  const alertas = devicesDemo
     .filter((d) => d.escenario === 'alto_consumo' || d.escenario === 'desperdicio')
     .map((d) => ({
       id: d.id,
@@ -86,6 +138,12 @@ export default function Dashboard() {
             <p className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>{cfg.currency} {costoTotalPeriodo.toFixed(2)}</p>
           </div>
         </div>
+        {isSupabaseConfigured && equipoReal && (
+          <p className="text-[10px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
+            Este gráfico todavía usa solo los equipos de demostración. En cuanto {equipoReal.nombre} lleve varios
+            días transmitiendo, se puede sumar aquí también.
+          </p>
+        )}
       </section>
 
       {/* B. Consumo en tiempo real */}
@@ -94,7 +152,31 @@ export default function Dashboard() {
           <Zap size={16} style={{ color: 'var(--color-primary)' }} /> Consumo en tiempo real
         </h2>
         <div className="space-y-2">
-          {lecturas.map(({ device, reading }) => (
+          {/* Tarjeta del equipo real */}
+          {isSupabaseConfigured && equipoReal && (
+            <div
+              className="rounded-xl p-3 flex items-center justify-between"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-primary)' }}
+            >
+              <div>
+                <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{equipoReal.nombre}</p>
+                <p className="text-[11px]" style={{ color: lecturaReal?.reading.estado === 'encendido' ? 'var(--color-primary)' : 'var(--color-text-dim)' }}>
+                  {lecturaReal
+                    ? `${lecturaReal.reading.estado === 'encendido' ? '● Encendido' : '○ Apagado'} · Dato real`
+                    : 'Esperando la primera lectura del ESP32...'}
+                </p>
+              </div>
+              {lecturaReal && (
+                <div className="text-right">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>{lecturaReal.reading.potenciaKw.toFixed(2)} kW</p>
+                  <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>{cfg.currency} {(lecturaReal.reading.potenciaKw * cfg.tarifaPorKwh).toFixed(2)}/h</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tarjetas de los equipos de demostración */}
+          {lecturasDemo.map(({ device, reading }) => (
             <div
               key={device.id}
               className="rounded-xl p-3 flex items-center justify-between"
@@ -103,7 +185,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{device.nombre}</p>
                 <p className="text-[11px]" style={{ color: reading.estado === 'encendido' ? 'var(--color-primary)' : 'var(--color-text-dim)' }}>
-                  {reading.estado === 'encendido' ? '● Encendido' : '○ Apagado'} · {device.source === 'real' ? 'Dato real' : 'Simulado'}
+                  {reading.estado === 'encendido' ? '● Encendido' : '○ Apagado'} · Simulado
                 </p>
               </div>
               <div className="text-right">
