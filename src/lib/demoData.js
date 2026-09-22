@@ -11,13 +11,26 @@
 
 const ESCENARIOS = ['normal', 'alto_consumo', 'desperdicio', 'ahorro']
 
-const BASE_DEVICES = [
+// Dos catálogos de equipos de demostración, uno por segmento — reflejan
+// a las dos personas del modelo de negocio: Jorge Ramírez (hogar, plan
+// Básico) y Carlos Méndez (restaurante, plan Premium). El equipo real
+// (fuente: real) se muestra siempre, sin importar el segmento, porque
+// vive en Supabase, no aquí.
+const DEVICES_HOGAR = [
   { id: 'ac-sala', nombre: 'Aire acondicionado - Sala', kwBase: 1.82, source: 'real', escenario: 'normal' },
+  { id: 'ac-dormitorio', nombre: 'Aire acondicionado - Dormitorio', kwBase: 1.4, source: 'demo', escenario: 'desperdicio' },
   { id: 'refrigerador', nombre: 'Refrigerador', kwBase: 0.18, source: 'demo', escenario: 'normal' },
-  { id: 'calefon', nombre: 'Calefón eléctrico', kwBase: 3.2, source: 'demo', escenario: 'alto_consumo' },
-  { id: 'lavadora', nombre: 'Lavadora', kwBase: 0.9, source: 'demo', escenario: 'desperdicio' },
-  { id: 'iluminacion', nombre: 'Iluminación general', kwBase: 0.25, source: 'demo', escenario: 'ahorro' },
+  { id: 'bomba-piscina', nombre: 'Bomba de piscina', kwBase: 0.75, source: 'demo', escenario: 'alto_consumo' },
 ]
+
+const DEVICES_PYME = [
+  { id: 'ac-sala', nombre: 'Climatización - Salón', kwBase: 1.82, source: 'real', escenario: 'normal' },
+  { id: 'camara-frio', nombre: 'Cámara de frío', kwBase: 2.1, source: 'demo', escenario: 'normal' },
+  { id: 'cocina', nombre: 'Equipos de cocina', kwBase: 3.4, source: 'demo', escenario: 'alto_consumo' },
+  { id: 'salon-iluminacion', nombre: 'Iluminación del salón', kwBase: 0.4, source: 'demo', escenario: 'desperdicio' },
+]
+
+const BASE_DEVICES = DEVICES_HOGAR
 
 function factorEscenario(escenario, tHour) {
   switch (escenario) {
@@ -34,14 +47,24 @@ function factorEscenario(escenario, tHour) {
   }
 }
 
-export function getDevices() {
-  return BASE_DEVICES
+// segmento: 'hogar' | 'pyme'. Sin argumento, devuelve el catálogo de hogar
+// (comportamiento anterior, para no romper nada que aún no pase el segmento).
+export function getDevices(segmento = 'hogar') {
+  return segmento === 'pyme' ? DEVICES_PYME : DEVICES_HOGAR
 }
 
-export function setDeviceScenario(id, escenario) {
-  const d = BASE_DEVICES.find((x) => x.id === id)
+// Segmento de demostración según el plan del usuario — el plan YA separa
+// hogares de PyMEs en el modelo de negocio, así que no hace falta un
+// campo aparte.
+export function segmentoDePlan(plan) {
+  return plan === 'premium' ? 'pyme' : 'hogar'
+}
+
+export function setDeviceScenario(id, escenario, segmento = 'hogar') {
+  const lista = segmento === 'pyme' ? DEVICES_PYME : DEVICES_HOGAR
+  const d = lista.find((x) => x.id === id)
   if (d) d.escenario = escenario
-  return BASE_DEVICES
+  return lista
 }
 
 export const ESCENARIOS_DISPONIBLES = ESCENARIOS
