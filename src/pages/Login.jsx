@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Zap, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -35,11 +35,9 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center px-5 py-10" style={{ background: 'var(--color-bg)' }}>
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style={{ background: 'var(--color-primary)' }}>
-            <Zap size={28} color="#0b1220" />
-          </div>
+          <img src="/bolt.png" alt="Smart Energy" className="w-14 h-14 rounded-2xl mb-3" style={{ background: 'var(--color-primary)', padding: 8 }} />
           <h1 className="text-2xl font-semibold" style={{ color: 'var(--color-text)' }}>Smart Energy</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-text-dim)' }}>Monitoreo inteligente de consumo eléctrico</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--color-text-dim)' }}>Mide, comprende y optimiza tu energía</p>
         </div>
 
         <div className="rounded-2xl p-6" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
