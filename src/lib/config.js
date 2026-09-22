@@ -14,21 +14,28 @@ const DEFAULT_CONFIG = {
   appName: 'Smart Energy',
   currency: 'Bs',
   tarifaPorKwh: 1.15, // Bs / kWh (sección 11)
+  whatsappNumero: '59170000000', // sin +, sin espacios — cámbialo por el real desde el panel admin
   plans: {
     basico: {
-      nombre: 'Básico',
-      precio: 50,
-      features: ['Monitoreo en tiempo real', 'Historial 30 días', 'Alertas básicas'],
+      nombre: 'Básico · Hogares',
+      precio: 35,
+      features: [
+        'Consumo en bolivianos y en tiempo real',
+        'Reportes esenciales e historial',
+        'Alertas de consumo',
+        'Soporte por WhatsApp',
+        '30 días de prueba gratis',
+      ],
     },
     premium: {
-      nombre: 'Premium',
-      precio: 130,
+      nombre: 'Premium · PyMEs',
+      precio: 70,
       features: [
-        'Todo lo del plan Básico',
-        'Historial ilimitado',
-        'Asistente Smart Energy (IA)',
-        'Control remoto por relé',
-        'Alertas avanzadas',
+        'Todo lo del Plan Básico',
+        'Alertas predictivas 24/7, también a deshoras',
+        'Apagado remoto en tiempo real por relé',
+        'Protección de la cadena de frío y equipos críticos',
+        'Soporte prioritario',
       ],
     },
   },
