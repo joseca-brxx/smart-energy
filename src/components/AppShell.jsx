@@ -22,9 +22,7 @@ export default function AppShell() {
         style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)' }}
       >
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-primary)' }}>
-            <span style={{ color: '#0b1220', fontWeight: 700, fontSize: 14 }}>⚡</span>
-          </div>
+          <img src="/bolt.png" alt="" className="w-8 h-8 rounded-lg" style={{ background: 'var(--color-primary)', padding: 4 }} />
           <span className="font-semibold text-sm" style={{ color: 'var(--color-text)' }}>{cfg.appName}</span>
         </div>
         <div className="flex items-center gap-2">
