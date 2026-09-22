@@ -1,14 +1,17 @@
-import { Wifi, WifiOff, Power } from 'lucide-react'
+import { Wifi, WifiOff, Power, Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { getDevices, getRealtimeReading } from '../lib/demoData'
+import { getDevices, getRealtimeReading, segmentoDePlan } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-
-// Los equipos de demostración (todo menos el real) siguen viniendo del
-// motor local. El equipo real ("fuente: real") ahora se lee y se
-// controla de verdad desde Supabase.
-const equiposDemo = getDevices().filter((d) => d.source !== 'real')
+import { useAuth } from '../context/AuthContext'
 
 export default function Devices() {
+  const { user } = useAuth()
+  const tieneAcceso = Boolean(user?.pagoConfirmado)
+  const segmento = segmentoDePlan(user?.plan)
+  // Los equipos de demostración (todo menos el real) reflejan el
+  // segmento del plan (hogar/PyME). El equipo real ("fuente: real")
+  // se lee y se controla de verdad desde Supabase.
+  const equiposDemo = getDevices(segmento).filter((d) => d.source !== 'real')
   const [equipoReal, setEquipoReal] = useState(null)
   const [ultimaMedicion, setUltimaMedicion] = useState(null)
   const [cambiando, setCambiando] = useState(false)
@@ -77,8 +80,17 @@ export default function Devices() {
 
       <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Mis dispositivos</h2>
       <div className="space-y-2">
-        {/* Equipo real, conectado a Supabase */}
-        {isSupabaseConfigured && equipoReal && (
+        {/* Equipo real, conectado a Supabase — solo con pago confirmado */}
+        {isSupabaseConfigured && equipoReal && !tieneAcceso && (
+          <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: 'var(--color-surface)', border: '1px dashed var(--color-border)' }}>
+            <Lock size={16} style={{ color: 'var(--color-text-dim)' }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{equipoReal.nombre} (dato real bloqueado)</p>
+              <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Activa tu plan para ver y controlar este equipo — ve a la pestaña Planes.</p>
+            </div>
+          </div>
+        )}
+        {isSupabaseConfigured && equipoReal && tieneAcceso && (
           <div className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-primary)' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
