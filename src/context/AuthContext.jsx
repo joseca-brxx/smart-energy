@@ -17,20 +17,27 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Junta el usuario de auth con su fila en profiles (rol, plan),
-  // llamando a una función de Supabase (RPC) que evita problemas de
-  // permisos (RLS) al leer el perfil.
+  // Junta el usuario de auth con su fila en profiles (rol, plan).
+  // Si el perfil todavía no existe (puede tardar un instante tras
+  // registrarse, por el trigger de la base de datos), reintenta un par
+  // de veces antes de rendirse con valores por defecto.
   async function cargarUsuarioConPerfil(authUser) {
     if (!authUser) return null
     for (let intento = 0; intento < 3; intento++) {
       const { data: filas, error } = await supabase.rpc('obtener_mi_perfil')
       const perfil = !error && filas && filas.length > 0 ? filas[0] : null
       if (perfil) {
-        return { id: authUser.id, email: authUser.email, rol: perfil.rol, plan: perfil.plan }
+        return {
+          id: authUser.id,
+          email: authUser.email,
+          rol: perfil.rol,
+          plan: perfil.plan,
+          pagoConfirmado: perfil.pago_confirmado,
+        }
       }
       await new Promise((r) => setTimeout(r, 500))
     }
-    return { id: authUser.id, email: authUser.email, rol: 'usuario', plan: 'basico' }
+    return { id: authUser.id, email: authUser.email, rol: 'usuario', plan: 'basico', pagoConfirmado: false }
   }
 
   useEffect(() => {
@@ -63,10 +70,10 @@ export function AuthProvider({ children }) {
     if (users.some((u) => u.email === email)) {
       throw new Error('Ese correo ya está registrado')
     }
-    const newUser = { id: crypto.randomUUID(), email, password, rol, plan: 'basico' }
+    const newUser = { id: crypto.randomUUID(), email, password, rol, plan: 'basico', pagoConfirmado: false }
     users.push(newUser)
     localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users))
-    const publicUser = { id: newUser.id, email, rol, plan: newUser.plan }
+    const publicUser = { id: newUser.id, email, rol, plan: newUser.plan, pagoConfirmado: newUser.pagoConfirmado }
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(publicUser))
     setUser(publicUser)
     return publicUser
@@ -83,14 +90,14 @@ export function AuthProvider({ children }) {
     const users = readLocalUsers()
     // Usuario administrador de demostración
     if (email === 'admin@smartenergy.com' && password === 'admin123') {
-      const adminUser = { id: 'admin-demo', email, rol: 'administrador', plan: 'premium' }
+      const adminUser = { id: 'admin-demo', email, rol: 'administrador', plan: 'premium', pagoConfirmado: true }
       localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(adminUser))
       setUser(adminUser)
       return adminUser
     }
     const found = users.find((u) => u.email === email && u.password === password)
     if (!found) throw new Error('Correo o contraseña incorrectos')
-    const publicUser = { id: found.id, email: found.email, rol: found.rol, plan: found.plan }
+    const publicUser = { id: found.id, email: found.email, rol: found.rol, plan: found.plan, pagoConfirmado: found.pagoConfirmado ?? false }
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(publicUser))
     setUser(publicUser)
     return publicUser
