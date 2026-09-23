@@ -19,6 +19,7 @@ const DEFAULT_CONFIG = {
   currency: 'Bs',
   tarifaPorKwh: 1.15, // Bs / kWh (sección 11)
   whatsappNumero: '59170000000', // sin +, sin espacios — cámbialo por el real desde el panel admin
+  precioEquipo: 300, // Bs, pago único por el enchufe inteligente
   plans: {
     basico: {
       nombre: 'Básico · Hogares',
@@ -93,6 +94,7 @@ async function subirASupabase(config) {
       moneda: config.currency,
       tarifa_kwh: config.tarifaPorKwh,
       whatsapp_numero: config.whatsappNumero,
+      precio_equipo: config.precioEquipo,
       plan_basico_precio: config.plans.basico.precio,
       plan_premium_precio: config.plans.premium.precio,
     })
@@ -114,6 +116,7 @@ export async function refrescarConfig() {
     currency: data.moneda ?? actual.currency,
     tarifaPorKwh: data.tarifa_kwh ?? actual.tarifaPorKwh,
     whatsappNumero: data.whatsapp_numero ?? actual.whatsappNumero,
+    precioEquipo: data.precio_equipo ?? actual.precioEquipo,
     plans: {
       basico: { ...actual.plans.basico, precio: data.plan_basico_precio ?? actual.plans.basico.precio },
       premium: { ...actual.plans.premium, precio: data.plan_premium_precio ?? actual.plans.premium.precio },
