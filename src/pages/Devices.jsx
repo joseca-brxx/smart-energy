@@ -57,6 +57,9 @@ export default function Devices() {
 
   // Modo demostración: catálogo por segmento (hogar / PyME)
   const equiposDemo = getDevices(segmento)
+  // Encendido/apagado de cada equipo de DEMO, solo visual (no toca nada
+  // real). undefined = usa el estado calculado por getRealtimeReading.
+  const [demoEncendido, setDemoEncendido] = useState({})
 
   return (
     <div className="space-y-4">
@@ -111,6 +114,9 @@ export default function Devices() {
           <div className="space-y-2">
             {equiposDemo.map((d) => {
               const reading = getRealtimeReading(d)
+              const override = demoEncendido[d.id]
+              const estaEncendido = override !== undefined ? override : reading.estado === 'encendido'
+              const potenciaMostrada = estaEncendido ? reading.potenciaKw : 0.02
               return (
                 <div key={d.id} className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between">
@@ -121,12 +127,20 @@ export default function Devices() {
                         <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Modo demostración</p>
                       </div>
                     </div>
-                    <span className="text-[11px] px-2 py-1 rounded-lg" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
-                      {reading.estado === 'encendido' ? 'Encendido' : 'Apagado'}
-                    </span>
+                    <button
+                      onClick={() => setDemoEncendido((s) => ({ ...s, [d.id]: !estaEncendido }))}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style={{
+                        background: estaEncendido ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                        color: estaEncendido ? '#0b1220' : 'var(--color-text-dim)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      <Power size={12} /> {estaEncendido ? 'Encendido' : 'Apagado'}
+                    </button>
                   </div>
                   <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
-                    {reading.potenciaKw.toFixed(2)} kW en este momento
+                    {potenciaMostrada.toFixed(2)} kW en este momento
                   </p>
                 </div>
               )
