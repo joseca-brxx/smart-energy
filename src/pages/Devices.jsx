@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, Power, Lock } from 'lucide-react'
+import { Wifi, WifiOff, Power } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getDevices, getRealtimeReading, segmentoDePlan } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
@@ -8,154 +8,135 @@ export default function Devices() {
   const { user } = useAuth()
   const tieneAcceso = Boolean(user?.pagoConfirmado)
   const segmento = segmentoDePlan(user?.plan)
-  // Los equipos de demostración (todo menos el real) reflejan el
-  // segmento del plan (hogar/PyME). El equipo real ("fuente: real")
-  // se lee y se controla de verdad desde Supabase.
-  const equiposDemo = getDevices(segmento).filter((d) => d.source !== 'real')
-  const [equipoReal, setEquipoReal] = useState(null)
-  const [ultimaMedicion, setUltimaMedicion] = useState(null)
-  const [cambiando, setCambiando] = useState(false)
-  const [estadosDemo, setEstadosDemo] = useState({}) // overrides locales de encendido/apagado por id
+  const [misEquipos, setMisEquipos] = useState([]) // equipos reales, uno por fila en Supabase
+  const [medicionesPorEquipo, setMedicionesPorEquipo] = useState({}) // { [equipoId]: medicion }
+  const [cambiando, setCambiando] = useState(null)
 
-  async function cargarEquipoReal() {
-    if (!isSupabaseConfigured) return
-    const { data: equipo } = await supabase
+  async function cargarMisEquipos() {
+    if (!isSupabaseConfigured || !tieneAcceso || !user) return
+    const { data: lista } = await supabase
       .from('equipos')
       .select('id, nombre, estado_deseado')
-      .eq('fuente', 'real')
-      .maybeSingle()
-    setEquipoReal(equipo)
+      .eq('usuario_id', user.id)
+    setMisEquipos(lista || [])
 
-    if (equipo) {
-      const { data: medicion } = await supabase
-        .from('mediciones')
-        .select('potencia_w, energia_kwh, creado_en')
-        .eq('device_id', equipo.id)
-        .order('creado_en', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      setUltimaMedicion(medicion)
+    if (lista && lista.length > 0) {
+      const mediciones = {}
+      for (const eq of lista) {
+        const { data: m } = await supabase
+          .from('mediciones')
+          .select('potencia_w, creado_en')
+          .eq('device_id', eq.id)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        mediciones[eq.id] = m
+      }
+      setMedicionesPorEquipo(mediciones)
     }
   }
 
   useEffect(() => {
-    cargarEquipoReal()
-    const intervalo = setInterval(cargarEquipoReal, 5000) // se actualiza solo cada 5s
+    cargarMisEquipos()
+    const intervalo = setInterval(cargarMisEquipos, 5000) // se refresca solo cada 5s
     return () => clearInterval(intervalo)
-  }, [])
+  }, [tieneAcceso, user?.id])
 
-  async function alternarReleReal() {
-    if (!equipoReal || cambiando) return
-    setCambiando(true)
-    const nuevoEstado = equipoReal.estado_deseado === 'encendido' ? 'apagado' : 'encendido'
+  async function alternarRele(equipo) {
+    setCambiando(equipo.id)
+    const nuevoEstado = equipo.estado_deseado === 'encendido' ? 'apagado' : 'encendido'
     const { error } = await supabase
       .from('equipos')
       .update({ estado_deseado: nuevoEstado })
-      .eq('id', equipoReal.id)
+      .eq('id', equipo.id)
     if (!error) {
-      setEquipoReal((e) => ({ ...e, estado_deseado: nuevoEstado }))
+      setMisEquipos((lista) => lista.map((e) => (e.id === equipo.id ? { ...e, estado_deseado: nuevoEstado } : e)))
     }
-    setCambiando(false)
+    setCambiando(null)
   }
 
-  const minutosDesdeUltimaLectura = ultimaMedicion
-    ? Math.round((Date.now() - new Date(ultimaMedicion.creado_en).getTime()) / 60000)
-    : null
+  // Modo demostración: catálogo por segmento (hogar / PyME)
+  const equiposDemo = getDevices(segmento)
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Smart Energy Hub 001</p>
+      {tieneAcceso ? (
+        <>
+          <div className="rounded-2xl p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Mis dispositivos</p>
             <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
-              {minutosDesdeUltimaLectura !== null
-                ? `Última comunicación: hace ${minutosDesdeUltimaLectura} min`
-                : 'Sin comunicación todavía'}
+              {misEquipos.length > 0
+                ? `${misEquipos.length} equipo(s) real(es) vinculado(s) a tu cuenta`
+                : 'Aún no tienes ningún equipo vinculado — contáctanos para que activemos tu dispositivo.'}
             </p>
           </div>
-          <Wifi size={18} style={{ color: 'var(--color-primary)' }} />
-        </div>
-      </div>
 
-      <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Mis dispositivos</h2>
-      <div className="space-y-2">
-        {/* Equipo real, conectado a Supabase — solo con pago confirmado */}
-        {isSupabaseConfigured && equipoReal && !tieneAcceso && (
-          <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: 'var(--color-surface)', border: '1px dashed var(--color-border)' }}>
-            <Lock size={16} style={{ color: 'var(--color-text-dim)' }} />
-            <div>
-              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{equipoReal.nombre} (dato real bloqueado)</p>
-              <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Activa tu plan para ver y controlar este equipo — ve a la pestaña Planes.</p>
-            </div>
-          </div>
-        )}
-        {isSupabaseConfigured && equipoReal && tieneAcceso && (
-          <div className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-primary)' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wifi size={14} style={{ color: 'var(--color-primary)' }} />
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{equipoReal.nombre}</p>
-                  <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Conectado a ESP32 + PZEM-004T</p>
-                </div>
-              </div>
-              <button
-                onClick={alternarReleReal}
-                disabled={cambiando}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{
-                  background: equipoReal.estado_deseado === 'encendido' ? 'var(--color-primary)' : 'var(--color-surface-2)',
-                  color: equipoReal.estado_deseado === 'encendido' ? '#0b1220' : 'var(--color-text-dim)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                <Power size={12} /> {equipoReal.estado_deseado === 'encendido' ? 'Encendido' : 'Apagado'}
-              </button>
-            </div>
-            <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
-              {ultimaMedicion ? `${(ultimaMedicion.potencia_w / 1000).toFixed(2)} kW (dato real)` : 'Esperando la primera lectura del ESP32...'}
-            </p>
-          </div>
-        )}
-
-        {/* Equipos de demostración */}
-        {equiposDemo.map((d) => {
-          const reading = getRealtimeReading(d)
-          const encendido = estadosDemo[d.id] ?? reading.estado === 'encendido'
-          return (
-            <div key={d.id} className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <WifiOff size={14} style={{ color: 'var(--color-text-dim)' }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{d.nombre}</p>
-                    <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Modo demostración</p>
+          <div className="space-y-2">
+            {misEquipos.map((eq) => {
+              const medicion = medicionesPorEquipo[eq.id]
+              return (
+                <div key={eq.id} className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-primary)' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wifi size={14} style={{ color: 'var(--color-primary)' }} />
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{eq.nombre}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Conectado a ESP32 + PZEM-004T</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => alternarRele(eq)}
+                      disabled={cambiando === eq.id}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style={{
+                        background: eq.estado_deseado === 'encendido' ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                        color: eq.estado_deseado === 'encendido' ? '#0b1220' : 'var(--color-text-dim)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      <Power size={12} /> {eq.estado_deseado === 'encendido' ? 'Encendido' : 'Apagado'}
+                    </button>
                   </div>
+                  <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
+                    {medicion ? `${(medicion.potencia_w / 1000).toFixed(2)} kW (dato real)` : 'Esperando la primera lectura del ESP32...'}
+                  </p>
                 </div>
-                <button
-                  onClick={() => setEstadosDemo((s) => ({ ...s, [d.id]: !encendido }))}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                  style={{
-                    background: encendido ? 'var(--color-primary)' : 'var(--color-surface-2)',
-                    color: encendido ? '#0b1220' : 'var(--color-text-dim)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                >
-                  <Power size={12} /> {encendido ? 'Encendido' : 'Apagado'}
-                </button>
-              </div>
-              <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
-                {encendido ? `${reading.potenciaKw.toFixed(2)} kW en este momento` : '0.00 kW (apagado)'}
-              </p>
-            </div>
-          )
-        })}
-      </div>
-      <p className="text-[11px] text-center" style={{ color: 'var(--color-text-dim)' }}>
-        El botón de encendido/apagado del equipo real le envía la orden al ESP32 a través de Supabase
-        (puede tardar unos segundos en reflejarse físicamente).
-      </p>
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        <>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Mis dispositivos (modo demostración)</h2>
+          <div className="space-y-2">
+            {equiposDemo.map((d) => {
+              const reading = getRealtimeReading(d)
+              return (
+                <div key={d.id} className="rounded-xl p-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <WifiOff size={14} style={{ color: 'var(--color-text-dim)' }} />
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>{d.nombre}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Modo demostración</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] px-2 py-1 rounded-lg" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
+                      {reading.estado === 'encendido' ? 'Encendido' : 'Apagado'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
+                    {reading.potenciaKw.toFixed(2)} kW en este momento
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[11px] text-center" style={{ color: 'var(--color-text-dim)' }}>
+            Activa tu plan en la pestaña "Planes" para ver y controlar tus equipos reales.
+          </p>
+        </>
+      )}
     </div>
   )
 }

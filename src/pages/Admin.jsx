@@ -2,23 +2,34 @@ import { useEffect, useState } from 'react'
 import { getConfig, saveConfig } from '../lib/config'
 import { getDevices, setDeviceScenario, ESCENARIOS_DISPONIBLES } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { Save, Check, X } from 'lucide-react'
+import { Save, Check, X, Plug, Trash2 } from 'lucide-react'
 
 export default function Admin() {
   const [cfg, setCfg] = useState(getConfig())
   const [devicesHogar, setDevicesHogar] = useState(getDevices('hogar'))
-  const [devicesPyme, setDevicesPyme] = useState(getDevices('pyme'))
+  const [devicesPymeExtra, setDevicesPymeExtra] = useState(
+    getDevices('pyme').filter((d) => !getDevices('hogar').some((h) => h.id === d.id))
+  )
   const [savedMsg, setSavedMsg] = useState('')
   const [usuarios, setUsuarios] = useState([])
+  const [equipos, setEquipos] = useState([])
+  const [nuevoEquipo, setNuevoEquipo] = useState({ usuarioId: '', id: '', nombre: '' })
 
   useEffect(() => {
     cargarUsuarios()
+    cargarEquipos()
   }, [])
 
   async function cargarUsuarios() {
     if (!isSupabaseConfigured) return
     const { data } = await supabase.rpc('admin_listar_usuarios')
     setUsuarios(data || [])
+  }
+
+  async function cargarEquipos() {
+    if (!isSupabaseConfigured) return
+    const { data } = await supabase.from('equipos').select('*').eq('fuente', 'real')
+    setEquipos(data || [])
   }
 
   async function alternarPago(u) {
@@ -37,6 +48,28 @@ export default function Admin() {
       nuevo_pago: u.pago_confirmado,
     })
     cargarUsuarios()
+  }
+
+  async function vincularEquipo() {
+    if (!nuevoEquipo.usuarioId || !nuevoEquipo.id || !nuevoEquipo.nombre) return
+    const { error } = await supabase.from('equipos').insert({
+      id: nuevoEquipo.id,
+      nombre: nuevoEquipo.nombre,
+      fuente: 'real',
+      usuario_id: nuevoEquipo.usuarioId,
+      estado_deseado: 'apagado',
+    })
+    if (!error) {
+      setNuevoEquipo({ usuarioId: '', id: '', nombre: '' })
+      cargarEquipos()
+    } else {
+      alert('No se pudo vincular: ' + error.message)
+    }
+  }
+
+  async function desvincularEquipo(id) {
+    await supabase.from('equipos').delete().eq('id', id)
+    cargarEquipos()
   }
 
   function guardarGeneral() {
@@ -60,6 +93,10 @@ export default function Admin() {
   function flash(msg) {
     setSavedMsg(msg)
     setTimeout(() => setSavedMsg(''), 2000)
+  }
+
+  function emailDe(usuarioId) {
+    return usuarios.find((u) => u.id === usuarioId)?.email || usuarioId
   }
 
   return (
@@ -95,20 +132,75 @@ export default function Admin() {
         ))}
       </section>
 
-      {/* Equipos / escenarios de demostración, por segmento */}
+      {/* Dispositivos reales — vincular un equipo a un usuario */}
+      {isSupabaseConfigured && (
+        <section className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          <p className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--color-text)' }}>
+            <Plug size={14} /> Dispositivos reales
+          </p>
+          <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
+            Cuando entregues/instales un enchufe inteligente a un cliente, vincúlalo aquí a su cuenta.
+            El "ID del dispositivo" debe ser exactamente el mismo que pusiste en <code>DEVICE_ID</code> en el firmware de ese ESP32.
+          </p>
+
+          <div className="rounded-lg p-3 space-y-2" style={{ background: 'var(--color-surface-2)' }}>
+            <select
+              value={nuevoEquipo.usuarioId}
+              onChange={(e) => setNuevoEquipo({ ...nuevoEquipo, usuarioId: e.target.value })}
+              className="w-full text-[11px] rounded px-2 py-1.5"
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+            >
+              <option value="">Elige el usuario...</option>
+              {usuarios.map((u) => (
+                <option key={u.id} value={u.id}>{u.email}</option>
+              ))}
+            </select>
+            <Field label="ID del dispositivo (igual al DEVICE_ID del firmware)" value={nuevoEquipo.id} onChange={(v) => setNuevoEquipo({ ...nuevoEquipo, id: v })} />
+            <Field label="Nombre a mostrar (ej: Aire acondicionado - Sala)" value={nuevoEquipo.nombre} onChange={(v) => setNuevoEquipo({ ...nuevoEquipo, nombre: v })} />
+            <button
+              onClick={vincularEquipo}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: 'var(--color-primary)', color: '#0b1220' }}
+            >
+              <Plug size={12} /> Vincular dispositivo
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {equipos.length === 0 && (
+              <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Todavía no hay dispositivos reales vinculados.</p>
+            )}
+            {equipos.map((eq) => (
+              <div key={eq.id} className="flex items-center justify-between rounded-lg p-2" style={{ background: 'var(--color-surface-2)' }}>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--color-text)' }}>{eq.nombre}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
+                    ID: {eq.id} · {emailDe(eq.usuario_id)}
+                  </p>
+                </div>
+                <button onClick={() => desvincularEquipo(eq.id)} style={{ color: 'var(--color-danger)' }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Equipos / escenarios de demostración */}
       <section className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
         <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>Equipos — datos de demostración</p>
 
         <div>
-          <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Segmento Hogar (plan Básico)</p>
+          <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Comunes a ambos planes (Básico y Premium)</p>
           <div className="space-y-2">
             {devicesHogar.map((d) => (
               <div key={d.id} className="flex items-center justify-between">
-                <p className="text-xs" style={{ color: 'var(--color-text)' }}>{d.nombre} {d.source === 'real' && <span style={{ color: 'var(--color-primary)' }}>(real)</span>}</p>
+                <p className="text-xs" style={{ color: 'var(--color-text)' }}>{d.nombre}</p>
                 <select
                   value={d.escenario}
                   onChange={(e) => {
-                    setDeviceScenario(d.id, e.target.value, 'hogar')
+                    setDeviceScenario(d.id, e.target.value)
                     setDevicesHogar([...getDevices('hogar')])
                   }}
                   className="text-[11px] rounded px-2 py-1"
@@ -124,16 +216,16 @@ export default function Admin() {
         </div>
 
         <div>
-          <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Segmento PyME (plan Premium)</p>
+          <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-dim)' }}>Solo Premium (PyMEs)</p>
           <div className="space-y-2">
-            {devicesPyme.map((d) => (
+            {devicesPymeExtra.map((d) => (
               <div key={d.id} className="flex items-center justify-between">
-                <p className="text-xs" style={{ color: 'var(--color-text)' }}>{d.nombre} {d.source === 'real' && <span style={{ color: 'var(--color-primary)' }}>(real)</span>}</p>
+                <p className="text-xs" style={{ color: 'var(--color-text)' }}>{d.nombre}</p>
                 <select
                   value={d.escenario}
                   onChange={(e) => {
-                    setDeviceScenario(d.id, e.target.value, 'pyme')
-                    setDevicesPyme([...getDevices('pyme')])
+                    setDeviceScenario(d.id, e.target.value)
+                    setDevicesPymeExtra(getDevices('pyme').filter((x) => !getDevices('hogar').some((h) => h.id === x.id)))
                   }}
                   className="text-[11px] rounded px-2 py-1"
                   style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
