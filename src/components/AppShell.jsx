@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { LayoutDashboard, Cpu, Bot, CreditCard, Shield, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { getConfig } from '../lib/config'
+import { getConfig, refrescarConfig } from '../lib/config'
 
 const tabs = [
   { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
@@ -12,8 +13,12 @@ const tabs = [
 
 export default function AppShell() {
   const { user, signOut } = useAuth()
-  const cfg = getConfig()
+  const [cfg, setCfg] = useState(getConfig())
   const isAdmin = user?.rol === 'administrador'
+
+  useEffect(() => {
+    refrescarConfig().then(setCfg)
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
