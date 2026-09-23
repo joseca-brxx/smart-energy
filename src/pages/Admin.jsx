@@ -79,6 +79,7 @@ export default function Admin() {
       currency: cfg.currency,
       tarifaPorKwh: Number(cfg.tarifaPorKwh),
       whatsappNumero: cfg.whatsappNumero,
+      precioEquipo: Number(cfg.precioEquipo),
     })
     setCfg(next)
     flash('Configuración general guardada')
@@ -114,6 +115,7 @@ export default function Admin() {
         <Field label="Moneda" value={cfg.currency} onChange={(v) => setCfg({ ...cfg, currency: v })} />
         <Field label="Tarifa eléctrica (por kWh)" value={cfg.tarifaPorKwh} type="number" onChange={(v) => setCfg({ ...cfg, tarifaPorKwh: v })} />
         <Field label="WhatsApp para confirmar pagos (código país + número, sin +)" value={cfg.whatsappNumero} onChange={(v) => setCfg({ ...cfg, whatsappNumero: v })} />
+        <Field label="Precio del equipo físico (pago único, Bs)" value={cfg.precioEquipo} type="number" onChange={(v) => setCfg({ ...cfg, precioEquipo: v })} />
         <button onClick={guardarGeneral} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg" style={{ background: 'var(--color-primary)', color: '#0b1220' }}>
           <Save size={12} /> Guardar
         </button>

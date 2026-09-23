@@ -1,16 +1,19 @@
-import { Wifi, WifiOff, Power } from 'lucide-react'
+import { Wifi, WifiOff, Power, Plus, QrCode } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getDevices, getRealtimeReading, segmentoDePlan } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { getConfig } from '../lib/config'
 
 export default function Devices() {
   const { user } = useAuth()
+  const cfg = getConfig()
   const tieneAcceso = Boolean(user?.pagoConfirmado)
   const segmento = segmentoDePlan(user?.plan)
   const [misEquipos, setMisEquipos] = useState([]) // equipos reales, uno por fila en Supabase
   const [medicionesPorEquipo, setMedicionesPorEquipo] = useState({}) // { [equipoId]: medicion }
   const [cambiando, setCambiando] = useState(null)
+  const [mostrarAgregar, setMostrarAgregar] = useState(false)
 
   async function cargarMisEquipos() {
     if (!isSupabaseConfigured || !tieneAcceso || !user) return
@@ -53,6 +56,12 @@ export default function Devices() {
       setMisEquipos((lista) => lista.map((e) => (e.id === equipo.id ? { ...e, estado_deseado: nuevoEstado } : e)))
     }
     setCambiando(null)
+  }
+
+  function abrirWhatsappNuevoDispositivo() {
+    const mensaje = `Hola, quiero agregar otro dispositivo (${cfg.currency} ${cfg.precioEquipo}, pago único) a mi cuenta ${user?.email || ''} de Smart Energy. Les envío el comprobante.`
+    const url = `https://wa.me/${cfg.whatsappNumero}?text=${encodeURIComponent(mensaje)}`
+    window.open(url, '_blank')
   }
 
   // Modo demostración: catálogo por segmento (hogar / PyME)
@@ -107,6 +116,47 @@ export default function Devices() {
               )
             })}
           </div>
+
+          {!mostrarAgregar ? (
+            <button
+              onClick={() => setMostrarAgregar(true)}
+              className="w-full py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5"
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px dashed var(--color-border)' }}
+            >
+              <Plus size={14} /> Agregar otro dispositivo
+            </button>
+          ) : (
+            <div className="rounded-xl p-4 text-center" style={{ background: 'var(--color-surface-2)', border: '1px dashed var(--color-border)' }}>
+              <p className="text-xs mb-3" style={{ color: 'var(--color-text)' }}>
+                Escanea y paga <b>{cfg.currency} {cfg.precioEquipo}</b> (equipo nuevo, pago único — sin cobro adicional de suscripción)
+              </p>
+              <img
+                src="/qr-pago.png"
+                alt="QR de pago"
+                className="mx-auto rounded-lg mb-3"
+                style={{ width: 180, height: 180, border: '1px solid var(--color-border)' }}
+              />
+              <p className="text-[11px] mb-3" style={{ color: 'var(--color-text-dim)' }}>
+                Después de pagar, envíanos tu comprobante por WhatsApp para que vinculemos el equipo nuevo.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMostrarAgregar(false)}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: 'var(--color-surface)', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={abrirWhatsappNuevoDispositivo}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1"
+                  style={{ background: '#25D366', color: '#0b1220' }}
+                >
+                  <QrCode size={12} /> Ya pagué, confirmar
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <>
