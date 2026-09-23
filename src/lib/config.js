@@ -2,11 +2,15 @@
 // -----------------------------------------------------------------------
 // Regla del proyecto (sección 11 y 20 del brief): la tarifa, moneda y
 // precios de planes NO deben quedar escritos sueltos en el código.
-// Este archivo es la ÚNICA fuente de verdad para esos valores mientras
-// no exista todavía la tabla `configuracion` en Supabase (ETAPA 2/4).
-// Cuando el panel de administración esté conectado a Supabase, estas
-// funciones leerán/escribirán en esa tabla en lugar de este objeto local,
-// sin que el resto de la app tenga que cambiar (usan siempre getConfig()).
+//
+// Esta configuración vive en Supabase (tabla `configuracion`, fila única
+// id=1) para que sea la MISMA en todos los dispositivos — antes solo se
+// guardaba en el navegador de cada quien, así que un cambio hecho desde
+// el celular del admin no lo veían los demás usuarios. Como respaldo
+// (y para que la app no se quede en blanco mientras carga), se guarda
+// también una copia en localStorage.
+
+import { supabase, isSupabaseConfigured } from './supabaseClient'
 
 const STORAGE_KEY = 'smartenergy_config_v1'
 
@@ -41,7 +45,9 @@ const DEFAULT_CONFIG = {
   },
 }
 
-export function getConfig() {
+let cachedConfig = null
+
+function leerLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_CONFIG
@@ -51,11 +57,70 @@ export function getConfig() {
   }
 }
 
+function guardarLocal(config) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  cachedConfig = config
+}
+
+// Devuelve la última configuración conocida, al instante (sin esperar
+// a Supabase). Úsalo para el primer render de cada pantalla.
+export function getConfig() {
+  if (!cachedConfig) cachedConfig = leerLocal()
+  return cachedConfig
+}
+
+// Guarda un cambio: lo aplica al instante en este dispositivo (localStorage)
+// y lo sube a Supabase en segundo plano para que los demás dispositivos
+// también lo vean la próxima vez que carguen la configuración.
 export function saveConfig(partial) {
   const current = getConfig()
-  const next = { ...current, ...partial }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  const next = {
+    ...current,
+    ...partial,
+    plans: partial.plans ? { ...current.plans, ...partial.plans } : current.plans,
+  }
+  guardarLocal(next)
+  subirASupabase(next)
   return next
+}
+
+async function subirASupabase(config) {
+  if (!isSupabaseConfigured) return
+  await supabase
+    .from('configuracion')
+    .update({
+      nombre_app: config.appName,
+      moneda: config.currency,
+      tarifa_kwh: config.tarifaPorKwh,
+      whatsapp_numero: config.whatsappNumero,
+      plan_basico_precio: config.plans.basico.precio,
+      plan_premium_precio: config.plans.premium.precio,
+    })
+    .eq('id', 1)
+}
+
+// Trae la configuración compartida desde Supabase y actualiza la copia
+// local. Cada pantalla la llama al montarse (useEffect), así todos los
+// dispositivos terminan viendo los mismos valores.
+export async function refrescarConfig() {
+  if (!isSupabaseConfigured) return getConfig()
+  const { data, error } = await supabase.from('configuracion').select('*').eq('id', 1).maybeSingle()
+  if (error || !data) return getConfig()
+
+  const actual = getConfig()
+  const nuevo = {
+    ...actual,
+    appName: data.nombre_app ?? actual.appName,
+    currency: data.moneda ?? actual.currency,
+    tarifaPorKwh: data.tarifa_kwh ?? actual.tarifaPorKwh,
+    whatsappNumero: data.whatsapp_numero ?? actual.whatsappNumero,
+    plans: {
+      basico: { ...actual.plans.basico, precio: data.plan_basico_precio ?? actual.plans.basico.precio },
+      premium: { ...actual.plans.premium, precio: data.plan_premium_precio ?? actual.plans.premium.precio },
+    },
+  }
+  guardarLocal(nuevo)
+  return nuevo
 }
 
 export function costoDesdeKwh(kwh) {
