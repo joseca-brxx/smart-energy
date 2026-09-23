@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getConfig, saveConfig } from '../lib/config'
+import { getConfig, saveConfig, refrescarConfig } from '../lib/config'
 import { getDevices, setDeviceScenario, ESCENARIOS_DISPONIBLES } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { Save, Check, X, Plug, Trash2 } from 'lucide-react'
@@ -18,6 +18,7 @@ export default function Admin() {
   useEffect(() => {
     cargarUsuarios()
     cargarEquipos()
+    refrescarConfig().then(setCfg)
   }, [])
 
   async function cargarUsuarios() {
