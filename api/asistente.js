@@ -12,10 +12,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel' })
   }
 
-  const { pregunta, contexto } = req.body || {}
+  const { pregunta, contexto, modelo } = req.body || {}
   if (!pregunta) {
     return res.status(400).json({ error: 'Falta la pregunta' })
   }
+  const modeloUsar = modelo || 'gemini-3.8-flash'
 
   const prompt = `Eres el "Asistente Smart Energy", que ayuda a entender el consumo eléctrico y encontrar oportunidades de ahorro.
 
@@ -32,7 +33,7 @@ Pregunta del usuario: ${pregunta}`
 
   try {
     const respuestaGemini = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modeloUsar}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
