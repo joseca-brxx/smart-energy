@@ -22,6 +22,16 @@ function analizar() {
   return { cfg, consumos, totalMes, ordenado }
 }
 
+function construirContexto() {
+  const { cfg, ordenado, totalMes } = analizar()
+  const lineas = ordenado.map(
+    (c) => `- ${c.device.nombre}: ${c.kwhMes.toFixed(1)} kWh en 30 días (estado actual: ${c.reading.estado})`
+  )
+  return `Tarifa: ${cfg.currency} ${cfg.tarifaPorKwh}/kWh. Consumo total del mes: ${totalMes.toFixed(1)} kWh.
+Equipos:
+${lineas.join('\n')}`
+}
+
 function generarRespuesta(pregunta) {
   const { cfg, ordenado, totalMes } = analizar()
   const top = ordenado[0]
@@ -62,11 +72,26 @@ export default function Assistant() {
   ])
   const [input, setInput] = useState('')
 
-  function enviar(texto) {
+  async function enviar(texto) {
     if (!texto.trim()) return
-    const respuesta = generarRespuesta(texto)
-    setMensajes((m) => [...m, { rol: 'usuario', texto }, { rol: 'asistente', texto: respuesta }])
+    setMensajes((m) => [...m, { rol: 'usuario', texto }])
     setInput('')
+
+    try {
+      const resp = await fetch('/api/asistente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pregunta: texto, contexto: construirContexto() }),
+      })
+      const data = await resp.json()
+      if (!resp.ok || !data.texto) throw new Error(data.error || 'sin respuesta')
+      setMensajes((m) => [...m, { rol: 'asistente', texto: data.texto }])
+    } catch {
+      // Si la IA no está disponible (sin configurar, sin internet, cuota
+      // agotada), seguimos funcionando con las reglas locales de siempre.
+      const respuesta = generarRespuesta(texto)
+      setMensajes((m) => [...m, { rol: 'asistente', texto: respuesta }])
+    }
   }
 
   return (
