@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getConfig, saveConfig, refrescarConfig } from '../lib/config'
 import { getDevices, setDeviceScenario, ESCENARIOS_DISPONIBLES } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { Save, Check, X, Plug, Trash2 } from 'lucide-react'
+import { Save, Check, X, Plug, Trash2, AlertTriangle } from 'lucide-react'
 
 export default function Admin() {
   const [cfg, setCfg] = useState(getConfig())
@@ -100,6 +100,9 @@ export default function Admin() {
   function emailDe(usuarioId) {
     return usuarios.find((u) => u.id === usuarioId)?.email || usuarioId
   }
+
+  const hoy = new Date().toISOString().slice(0, 10)
+  const vencidos = usuarios.filter((u) => u.pago_confirmado && u.proximo_pago && u.proximo_pago < hoy)
 
   return (
     <div className="space-y-5">
@@ -243,6 +246,32 @@ export default function Admin() {
         </div>
       </section>
 
+      {/* Pagos vencidos */}
+      {isSupabaseConfigured && vencidos.length > 0 && (
+        <section className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(244,85,79,0.08)', border: '1px solid var(--color-danger)' }}>
+          <p className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--color-danger)' }}>
+            <AlertTriangle size={14} /> Pagos vencidos ({vencidos.length})
+          </p>
+          <div className="space-y-2">
+            {vencidos.map((u) => (
+              <div key={u.id} className="flex items-center justify-between rounded-lg p-2" style={{ background: 'var(--color-surface-2)' }}>
+                <div>
+                  <p className="text-xs" style={{ color: 'var(--color-text)' }}>{u.email}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--color-danger)' }}>Venció el {u.proximo_pago}</p>
+                </div>
+                <button
+                  onClick={() => alternarPago(u)}
+                  className="text-[11px] px-2.5 py-1.5 rounded-lg"
+                  style={{ background: 'var(--color-surface)', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}
+                >
+                  Pasar a demostración
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Usuarios */}
       {isSupabaseConfigured && (
         <section className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
@@ -250,39 +279,47 @@ export default function Admin() {
           {usuarios.length === 0 && (
             <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Aún no hay usuarios registrados.</p>
           )}
-          {usuarios.map((u) => (
-            <div key={u.id} className="rounded-lg p-3 space-y-2" style={{ background: 'var(--color-surface-2)' }}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs" style={{ color: 'var(--color-text)' }}>{u.email}</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: u.rol === 'administrador' ? 'var(--color-warning)' : 'var(--color-border)', color: u.rol === 'administrador' ? '#1a1204' : 'var(--color-text-dim)' }}>
-                  {u.rol}
-                </span>
+          {usuarios.map((u) => {
+            const vencido = u.pago_confirmado && u.proximo_pago && u.proximo_pago < hoy
+            return (
+              <div key={u.id} className="rounded-lg p-3 space-y-2" style={{ background: 'var(--color-surface-2)' }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: 'var(--color-text)' }}>{u.email}</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: u.rol === 'administrador' ? 'var(--color-warning)' : 'var(--color-border)', color: u.rol === 'administrador' ? '#1a1204' : 'var(--color-text-dim)' }}>
+                    {u.rol}
+                  </span>
+                </div>
+                {u.pago_confirmado && u.proximo_pago && (
+                  <p className="text-[11px]" style={{ color: vencido ? 'var(--color-danger)' : 'var(--color-text-dim)' }}>
+                    Próximo pago: {u.proximo_pago}{vencido ? ' (vencido)' : ''}
+                  </p>
+                )}
+                <div className="flex items-center justify-between">
+                  <select
+                    value={u.plan}
+                    onChange={(e) => cambiarPlan(u, e.target.value)}
+                    className="text-[11px] rounded px-2 py-1"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                  >
+                    <option value="basico">Básico</option>
+                    <option value="premium">Premium</option>
+                  </select>
+                  <button
+                    onClick={() => alternarPago(u)}
+                    className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg"
+                    style={{
+                      background: u.pago_confirmado ? 'var(--color-primary)' : 'var(--color-surface)',
+                      color: u.pago_confirmado ? '#0b1220' : 'var(--color-text-dim)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    {u.pago_confirmado ? <Check size={12} /> : <X size={12} />}
+                    {u.pago_confirmado ? 'Pago confirmado' : 'Sin confirmar'}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <select
-                  value={u.plan}
-                  onChange={(e) => cambiarPlan(u, e.target.value)}
-                  className="text-[11px] rounded px-2 py-1"
-                  style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
-                >
-                  <option value="basico">Básico</option>
-                  <option value="premium">Premium</option>
-                </select>
-                <button
-                  onClick={() => alternarPago(u)}
-                  className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg"
-                  style={{
-                    background: u.pago_confirmado ? 'var(--color-primary)' : 'var(--color-surface)',
-                    color: u.pago_confirmado ? '#0b1220' : 'var(--color-text-dim)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                >
-                  {u.pago_confirmado ? <Check size={12} /> : <X size={12} />}
-                  {u.pago_confirmado ? 'Pago confirmado' : 'Sin confirmar'}
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </section>
       )}
     </div>
