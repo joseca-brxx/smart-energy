@@ -4,6 +4,7 @@ import { getDevices, getRealtimeReading, segmentoDePlan } from '../lib/demoData'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { getConfig } from '../lib/config'
+import { formatearPotencia } from '../lib/format'
 
 export default function Devices() {
   const { user } = useAuth()
@@ -110,7 +111,7 @@ export default function Devices() {
                     </button>
                   </div>
                   <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
-                    {medicion ? `${(medicion.potencia_w / 1000).toFixed(2)} kW (dato real)` : 'Esperando la primera lectura del ESP32...'}
+                    {medicion ? `${formatearPotencia(medicion.potencia_w / 1000)} (dato real)` : 'Esperando la primera lectura del ESP32...'}
                   </p>
                 </div>
               )
@@ -190,7 +191,7 @@ export default function Devices() {
                     </button>
                   </div>
                   <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-dim)' }}>
-                    {potenciaMostrada.toFixed(2)} kW en este momento
+                    {formatearPotencia(potenciaMostrada)} en este momento
                   </p>
                 </div>
               )

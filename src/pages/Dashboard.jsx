@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { AlertTriangle, TrendingUp, Zap } from 'lucide-react'
 import { getDevices, getRealtimeReading, getHistorial, segmentoDePlan } from '../lib/demoData'
 import { getConfig } from '../lib/config'
+import { formatearPotencia } from '../lib/format'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -167,7 +168,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>{reading.potenciaKw.toFixed(2)} kW</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>{formatearPotencia(reading.potenciaKw)}</p>
                 <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>{cfg.currency} {(reading.potenciaKw * cfg.tarifaPorKwh).toFixed(2)}/h</p>
               </div>
             </div>
