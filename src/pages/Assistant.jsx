@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bot, Send } from 'lucide-react'
 import { getDevices, getRealtimeReading, getHistorial, totalKwh } from '../lib/demoData'
-import { getConfig } from '../lib/config'
+import { getConfig, refrescarConfig } from '../lib/config'
 
 // El asistente NO llama a un modelo externo todavía (no hay backend de IA
 // en esta etapa). Responde con reglas claras sobre los datos disponibles,
@@ -67,6 +67,10 @@ const SUGERENCIAS = [
 ]
 
 export default function Assistant() {
+  useEffect(() => {
+    refrescarConfig()
+  }, [])
+
   const [mensajes, setMensajes] = useState([
     { rol: 'asistente', texto: 'Hola, soy el Asistente Smart Energy. Puedo ayudarte a encontrar oportunidades de ahorro a partir de tus datos de consumo.' },
   ])
@@ -81,7 +85,7 @@ export default function Assistant() {
       const resp = await fetch('/api/asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pregunta: texto, contexto: construirContexto() }),
+        body: JSON.stringify({ pregunta: texto, contexto: construirContexto(), modelo: getConfig().modeloIA }),
       })
       const data = await resp.json()
       if (!resp.ok || !data.texto) throw new Error(data.error || 'sin respuesta')

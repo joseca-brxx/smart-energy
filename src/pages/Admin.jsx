@@ -80,6 +80,7 @@ export default function Admin() {
       tarifaPorKwh: Number(cfg.tarifaPorKwh),
       whatsappNumero: cfg.whatsappNumero,
       precioEquipo: Number(cfg.precioEquipo),
+      modeloIA: cfg.modeloIA,
     })
     setCfg(next)
     flash('Configuración general guardada')
@@ -119,6 +120,23 @@ export default function Admin() {
         <Field label="Tarifa eléctrica (por kWh)" value={cfg.tarifaPorKwh} type="number" onChange={(v) => setCfg({ ...cfg, tarifaPorKwh: v })} />
         <Field label="WhatsApp para confirmar pagos (código país + número, sin +)" value={cfg.whatsappNumero} onChange={(v) => setCfg({ ...cfg, whatsappNumero: v })} />
         <Field label="Precio del equipo físico (pago único, Bs)" value={cfg.precioEquipo} type="number" onChange={(v) => setCfg({ ...cfg, precioEquipo: v })} />
+        <div>
+          <label className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Modelo de IA del Asistente</label>
+          <select
+            value={cfg.modeloIA}
+            onChange={(e) => setCfg({ ...cfg, modeloIA: e.target.value })}
+            className="w-full mt-0.5 rounded-lg px-2.5 py-1.5 text-xs outline-none"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+          >
+            <option value="gemini-3.8-flash">gemini-3.8-flash (más capaz, más demandado)</option>
+            <option value="gemini-3.7-flash">gemini-3.7-flash</option>
+            <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+            <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (más liviano, menos saturado)</option>
+          </select>
+          <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-dim)' }}>
+            Si un modelo falla por saturación el día de la demo, cambia aquí a otro — no hace falta redesplegar.
+          </p>
+        </div>
         <button onClick={guardarGeneral} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg" style={{ background: 'var(--color-primary)', color: '#0b1220' }}>
           <Save size={12} /> Guardar
         </button>
