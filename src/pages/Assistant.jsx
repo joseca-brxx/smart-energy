@@ -27,7 +27,7 @@ function analizarDemo(segmento) {
 // equipos vinculados) o de demostración, más la info que el admin haya
 // cargado sobre el negocio.
 async function construirContexto(user, tieneAcceso, segmento) {
-  const cfg = getConfig()
+  const cfg = await refrescarConfig() // trae la versión más reciente de Supabase antes de responder
   let bloqueDatos
 
   if (tieneAcceso && isSupabaseConfigured && user) {
@@ -60,11 +60,15 @@ async function construirContexto(user, tieneAcceso, segmento) {
     bloqueDatos = `Tarifa: ${c.currency} ${c.tarifaPorKwh}/kWh. Consumo total del mes (DEMOSTRACIÓN): ${totalMes.toFixed(1)} kWh.\nEquipos:\n${lineas.join('\n')}`
   }
 
+  // Precios de planes, siempre incluidos automáticamente (no depende de
+  // que el admin los repita a mano en el texto libre de abajo)
+  const bloquePlanes = `\n\nPlanes actuales:\n- ${cfg.plans.basico.nombre}: ${cfg.currency} ${cfg.plans.basico.precio}/mes\n- ${cfg.plans.premium.nombre}: ${cfg.currency} ${cfg.plans.premium.precio}/mes\n- Equipo físico: ${cfg.currency} ${cfg.precioEquipo} (pago único)`
+
   const infoNegocio = cfg.infoAdicional?.trim()
     ? `\n\nInformación adicional sobre Smart Energy (para preguntas generales):\n${cfg.infoAdicional}`
     : ''
 
-  return bloqueDatos + infoNegocio
+  return bloqueDatos + bloquePlanes + infoNegocio
 }
 
 function generarRespuesta(pregunta, segmento) {
