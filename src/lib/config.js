@@ -21,6 +21,7 @@ const DEFAULT_CONFIG = {
   whatsappNumero: '59170000000', // sin +, sin espacios — cámbialo por el real desde el panel admin
   precioEquipo: 300, // Bs, pago único por el enchufe inteligente
   modeloIA: 'gemini-3.8-flash', // modelo de IA del Asistente Smart Energy
+  infoAdicional: '', // texto libre que el admin puede agregar para que el Asistente lo sepa
   plans: {
     basico: {
       nombre: 'Básico · Hogares',
@@ -97,6 +98,7 @@ async function subirASupabase(config) {
       whatsapp_numero: config.whatsappNumero,
       precio_equipo: config.precioEquipo,
       modelo_ia: config.modeloIA,
+      info_adicional: config.infoAdicional,
       plan_basico_precio: config.plans.basico.precio,
       plan_premium_precio: config.plans.premium.precio,
     })
@@ -120,6 +122,7 @@ export async function refrescarConfig() {
     whatsappNumero: data.whatsapp_numero ?? actual.whatsappNumero,
     precioEquipo: data.precio_equipo ?? actual.precioEquipo,
     modeloIA: data.modelo_ia ?? actual.modeloIA,
+    infoAdicional: data.info_adicional ?? actual.infoAdicional,
     plans: {
       basico: { ...actual.plans.basico, precio: data.plan_basico_precio ?? actual.plans.basico.precio },
       premium: { ...actual.plans.premium, precio: data.plan_premium_precio ?? actual.plans.premium.precio },
