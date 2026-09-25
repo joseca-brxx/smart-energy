@@ -81,6 +81,7 @@ export default function Admin() {
       whatsappNumero: cfg.whatsappNumero,
       precioEquipo: Number(cfg.precioEquipo),
       modeloIA: cfg.modeloIA,
+      infoAdicional: cfg.infoAdicional,
     })
     setCfg(next)
     flash('Configuración general guardada')
@@ -136,6 +137,19 @@ export default function Admin() {
           <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-dim)' }}>
             Si un modelo falla por saturación el día de la demo, cambia aquí a otro — no hace falta redesplegar.
           </p>
+        </div>
+        <div>
+          <label className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
+            Información adicional para el Asistente (planes, empresa, preguntas frecuentes, lo que quieras que sepa)
+          </label>
+          <textarea
+            value={cfg.infoAdicional}
+            onChange={(e) => setCfg({ ...cfg, infoAdicional: e.target.value })}
+            rows={4}
+            className="w-full mt-0.5 rounded-lg px-2.5 py-1.5 text-xs outline-none resize-y"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+            placeholder="Ej: Smart Energy es un proyecto de la UTEPSA creado por... El plan Premium incluye..."
+          />
         </div>
         <button onClick={guardarGeneral} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg" style={{ background: 'var(--color-primary)', color: '#0b1220' }}>
           <Save size={12} /> Guardar

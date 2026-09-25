@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Bot, Send } from 'lucide-react'
-import { getDevices, getRealtimeReading, getHistorial, totalKwh } from '../lib/demoData'
+import { getDevices, getRealtimeReading, getHistorial, totalKwh, segmentoDePlan } from '../lib/demoData'
 import { getConfig, refrescarConfig } from '../lib/config'
+import { useAuth } from '../context/AuthContext'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 
-// El asistente NO llama a un modelo externo todavía (no hay backend de IA
-// en esta etapa). Responde con reglas claras sobre los datos disponibles,
-// y siempre etiqueta si algo es un DATO REAL, un CÁLCULO o una ESTIMACIÓN,
-// tal como pide la sección 12 del brief. Más adelante esto puede conectarse
-// a la API de Claude (ver sección "asistente IA" del build) sin cambiar el
-// resto de la app: solo se reemplaza generarRespuesta() por una llamada a la API.
+// El asistente le pasa a la IA (Gemini) un resumen de los datos reales de
+// la cuenta (si ya tiene pago confirmado y equipos vinculados) o de los
+// datos de demostración (si no). Si la IA no está disponible, cae de
+// vuelta a este análisis local basado en reglas, para no dejar al
+// usuario sin respuesta.
 
-function analizar() {
+function analizarDemo(segmento) {
   const cfg = getConfig()
-  const devices = getDevices()
+  const devices = getDevices(segmento)
   const consumos = devices.map((d) => {
     const hist = getHistorial(d, 30)
     return { device: d, kwhMes: totalKwh(hist), reading: getRealtimeReading(d) }
@@ -22,18 +23,52 @@ function analizar() {
   return { cfg, consumos, totalMes, ordenado }
 }
 
-function construirContexto() {
-  const { cfg, ordenado, totalMes } = analizar()
-  const lineas = ordenado.map(
-    (c) => `- ${c.device.nombre}: ${c.kwhMes.toFixed(1)} kWh en 30 días (estado actual: ${c.reading.estado})`
-  )
-  return `Tarifa: ${cfg.currency} ${cfg.tarifaPorKwh}/kWh. Consumo total del mes: ${totalMes.toFixed(1)} kWh.
-Equipos:
-${lineas.join('\n')}`
+// Junta la tarifa + un resumen de consumo real (si hay acceso pagado y
+// equipos vinculados) o de demostración, más la info que el admin haya
+// cargado sobre el negocio.
+async function construirContexto(user, tieneAcceso, segmento) {
+  const cfg = getConfig()
+  let bloqueDatos
+
+  if (tieneAcceso && isSupabaseConfigured && user) {
+    const { data: equipos } = await supabase.from('equipos').select('id, nombre').eq('usuario_id', user.id)
+    if (equipos && equipos.length > 0) {
+      const lineas = []
+      for (const eq of equipos) {
+        const { data: m } = await supabase
+          .from('mediciones')
+          .select('potencia_w, creado_en')
+          .eq('device_id', eq.id)
+          .order('creado_en', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        lineas.push(
+          m
+            ? `- ${eq.nombre}: ${m.potencia_w.toFixed(1)} W en este momento (dato real, medido hace instantes)`
+            : `- ${eq.nombre}: todavía sin lecturas`
+        )
+      }
+      bloqueDatos = `Tarifa: ${cfg.currency} ${cfg.tarifaPorKwh}/kWh.\nEquipos reales del usuario:\n${lineas.join('\n')}`
+    }
+  }
+
+  if (!bloqueDatos) {
+    const { cfg: c, ordenado, totalMes } = analizarDemo(segmento)
+    const lineas = ordenado.map(
+      (x) => `- ${x.device.nombre}: ${x.kwhMes.toFixed(1)} kWh en 30 días (estado actual: ${x.reading.estado})`
+    )
+    bloqueDatos = `Tarifa: ${c.currency} ${c.tarifaPorKwh}/kWh. Consumo total del mes (DEMOSTRACIÓN): ${totalMes.toFixed(1)} kWh.\nEquipos:\n${lineas.join('\n')}`
+  }
+
+  const infoNegocio = cfg.infoAdicional?.trim()
+    ? `\n\nInformación adicional sobre Smart Energy (para preguntas generales):\n${cfg.infoAdicional}`
+    : ''
+
+  return bloqueDatos + infoNegocio
 }
 
-function generarRespuesta(pregunta) {
-  const { cfg, ordenado, totalMes } = analizar()
+function generarRespuesta(pregunta, segmento) {
+  const { cfg, ordenado, totalMes } = analizarDemo(segmento)
   const top = ordenado[0]
   const porcentaje = Math.round((top.kwhMes / totalMes) * 100)
   const costoTop = top.kwhMes * cfg.tarifaPorKwh
@@ -67,6 +102,10 @@ const SUGERENCIAS = [
 ]
 
 export default function Assistant() {
+  const { user } = useAuth()
+  const tieneAcceso = Boolean(user?.pagoConfirmado)
+  const segmento = segmentoDePlan(user?.plan)
+
   useEffect(() => {
     refrescarConfig()
   }, [])
@@ -82,10 +121,11 @@ export default function Assistant() {
     setInput('')
 
     try {
+      const contexto = await construirContexto(user, tieneAcceso, segmento)
       const resp = await fetch('/api/asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pregunta: texto, contexto: construirContexto(), modelo: getConfig().modeloIA }),
+        body: JSON.stringify({ pregunta: texto, contexto, modelo: getConfig().modeloIA }),
       })
       const data = await resp.json()
       if (!resp.ok || !data.texto) throw new Error(data.error || 'sin respuesta')
@@ -93,7 +133,7 @@ export default function Assistant() {
     } catch {
       // Si la IA no está disponible (sin configurar, sin internet, cuota
       // agotada), seguimos funcionando con las reglas locales de siempre.
-      const respuesta = generarRespuesta(texto)
+      const respuesta = generarRespuesta(texto, segmento)
       setMensajes((m) => [...m, { rol: 'asistente', texto: respuesta }])
     }
   }
