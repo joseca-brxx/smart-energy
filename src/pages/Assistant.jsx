@@ -3,6 +3,7 @@ import { Bot, Send } from 'lucide-react'
 import { getDevices, getRealtimeReading, getHistorial, totalKwh, segmentoDePlan } from '../lib/demoData'
 import { getConfig, refrescarConfig } from '../lib/config'
 import { useAuth } from '../context/AuthContext'
+import { useAssistantChat } from '../context/AssistantContext'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 
 // El asistente le pasa a la IA (Gemini) un resumen de los datos reales de
@@ -114,9 +115,7 @@ export default function Assistant() {
     refrescarConfig()
   }, [])
 
-  const [mensajes, setMensajes] = useState([
-    { rol: 'asistente', texto: 'Hola, soy el Asistente Smart Energy. Puedo ayudarte a encontrar oportunidades de ahorro a partir de tus datos de consumo.' },
-  ])
+  const { mensajes, setMensajes } = useAssistantChat()
   const [input, setInput] = useState('')
 
   async function enviar(texto) {
