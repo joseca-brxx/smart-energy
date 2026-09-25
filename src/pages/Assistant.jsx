@@ -120,7 +120,8 @@ export default function Assistant() {
 
   async function enviar(texto) {
     if (!texto.trim()) return
-    setMensajes((m) => [...m, { rol: 'usuario', texto }])
+    const historialActualizado = [...mensajes, { rol: 'usuario', texto }]
+    setMensajes(historialActualizado)
     setInput('')
 
     try {
@@ -128,7 +129,12 @@ export default function Assistant() {
       const resp = await fetch('/api/asistente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pregunta: texto, contexto, modelo: getConfig().modeloIA }),
+        body: JSON.stringify({
+          pregunta: texto,
+          contexto,
+          modelo: getConfig().modeloIA,
+          historial: historialActualizado,
+        }),
       })
       const data = await resp.json()
       if (!resp.ok || !data.texto) throw new Error(data.error || 'sin respuesta')
