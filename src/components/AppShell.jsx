@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { LayoutDashboard, Cpu, Bot, CreditCard, Shield, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { AssistantProvider } from '../context/AssistantContext'
 import { getConfig, refrescarConfig } from '../lib/config'
 
 const tabs = [
@@ -59,7 +60,9 @@ export default function AppShell() {
       )}
 
       <main className="flex-1 px-4 pt-4 pb-24 max-w-lg mx-auto w-full">
-        <Outlet />
+        <AssistantProvider>
+          <Outlet />
+        </AssistantProvider>
       </main>
 
       <nav
