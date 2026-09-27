@@ -123,13 +123,13 @@ export default function Dashboard() {
       {/* A. Historial de consumo — solo en modo demostración por ahora */}
       {!tieneAcceso && (
         <section className="rounded-2xl p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col gap-2 mb-3">
             <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Historial de consumo (demostración)</h2>
             <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
               {RANGOS.map((r) => (
                 <button
                   key={r.id} onClick={() => setRango(r.id)}
-                  className="px-2.5 py-1 text-[11px]"
+                  className="flex-1 px-2.5 py-1.5 text-[11px]"
                   style={{ background: rango === r.id ? 'var(--color-primary)' : 'transparent', color: rango === r.id ? '#0b1220' : 'var(--color-text-dim)' }}
                 >
                   {r.label}
