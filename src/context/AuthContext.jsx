@@ -33,6 +33,7 @@ export function AuthProvider({ children }) {
           rol: perfil.rol,
           plan: perfil.plan,
           pagoConfirmado: perfil.pago_confirmado,
+          proximoPago: perfil.proximo_pago,
         }
       }
       await new Promise((r) => setTimeout(r, 500))
