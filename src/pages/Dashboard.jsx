@@ -27,10 +27,19 @@ export default function Dashboard() {
 
   async function cargarMisEquipos() {
     if (!isSupabaseConfigured || !tieneAcceso || !user) return
-    const { data: lista } = await supabase.from('equipos').select('id, nombre').eq('usuario_id', user.id)
-    setMisEquipos(lista || [])
+    const { data: propios } = await supabase.from('equipos').select('id, nombre').eq('usuario_id', user.id)
+    const { data: compartidosFilas } = await supabase
+      .from('equipos_usuarios')
+      .select('equipos(id, nombre)')
+      .eq('usuario_id', user.id)
+    const compartidos = (compartidosFilas || []).map((f) => f.equipos).filter(Boolean)
+    const lista = [...(propios || [])]
+    compartidos.forEach((c) => {
+      if (!lista.some((e) => e.id === c.id)) lista.push(c)
+    })
+    setMisEquipos(lista)
     const mediciones = {}
-    for (const eq of lista || []) {
+    for (const eq of lista) {
       const { data: m } = await supabase
         .from('mediciones')
         .select('potencia_w, creado_en')

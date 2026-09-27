@@ -18,15 +18,28 @@ export default function Devices() {
 
   async function cargarMisEquipos() {
     if (!isSupabaseConfigured || !tieneAcceso || !user) return
-    const { data: lista } = await supabase
+
+    const { data: propios } = await supabase
       .from('equipos')
       .select('id, nombre, estado_deseado')
       .eq('usuario_id', user.id)
-    setMisEquipos(lista || [])
 
-    if (lista && lista.length > 0) {
+    const { data: compartidosFilas } = await supabase
+      .from('equipos_usuarios')
+      .select('equipos(id, nombre, estado_deseado)')
+      .eq('usuario_id', user.id)
+    const compartidos = (compartidosFilas || []).map((f) => f.equipos).filter(Boolean)
+
+    // Junta ambas listas sin repetir (un equipo podría, en teoría, aparecer en las dos)
+    const todos = [...(propios || [])]
+    compartidos.forEach((c) => {
+      if (!todos.some((e) => e.id === c.id)) todos.push(c)
+    })
+    setMisEquipos(todos)
+
+    if (todos.length > 0) {
       const mediciones = {}
-      for (const eq of lista) {
+      for (const eq of todos) {
         const { data: m } = await supabase
           .from('mediciones')
           .select('potencia_w, creado_en')

@@ -14,6 +14,8 @@ export default function Admin() {
   const [usuarios, setUsuarios] = useState([])
   const [equipos, setEquipos] = useState([])
   const [nuevoEquipo, setNuevoEquipo] = useState({ usuarioId: '', id: '', nombre: '' })
+  const [compartidos, setCompartidos] = useState({}) // { [equipoId]: [{usuario_id, email}] }
+  const [nuevoCompartido, setNuevoCompartido] = useState({}) // { [equipoId]: usuarioId elegido en el select }
 
   useEffect(() => {
     cargarUsuarios()
@@ -31,6 +33,14 @@ export default function Admin() {
     if (!isSupabaseConfigured) return
     const { data } = await supabase.from('equipos').select('*').eq('fuente', 'real')
     setEquipos(data || [])
+
+    const { data: compartidosData } = await supabase.from('equipos_usuarios').select('equipo_id, usuario_id')
+    const agrupado = {}
+    for (const c of compartidosData || []) {
+      if (!agrupado[c.equipo_id]) agrupado[c.equipo_id] = []
+      agrupado[c.equipo_id].push(c.usuario_id)
+    }
+    setCompartidos(agrupado)
   }
 
   async function alternarPago(u) {
@@ -70,6 +80,25 @@ export default function Admin() {
 
   async function desvincularEquipo(id) {
     await supabase.from('equipos').delete().eq('id', id)
+    cargarEquipos()
+  }
+
+  async function reasignarDueno(equipoId, nuevoUsuarioId) {
+    if (!nuevoUsuarioId) return
+    await supabase.from('equipos').update({ usuario_id: nuevoUsuarioId }).eq('id', equipoId)
+    cargarEquipos()
+  }
+
+  async function agregarCompartido(equipoId) {
+    const usuarioId = nuevoCompartido[equipoId]
+    if (!usuarioId) return
+    await supabase.from('equipos_usuarios').insert({ equipo_id: equipoId, usuario_id: usuarioId })
+    setNuevoCompartido({ ...nuevoCompartido, [equipoId]: '' })
+    cargarEquipos()
+  }
+
+  async function quitarCompartido(equipoId, usuarioId) {
+    await supabase.from('equipos_usuarios').delete().eq('equipo_id', equipoId).eq('usuario_id', usuarioId)
     cargarEquipos()
   }
 
@@ -206,21 +235,71 @@ export default function Admin() {
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {equipos.length === 0 && (
               <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Todavía no hay dispositivos reales vinculados.</p>
             )}
             {equipos.map((eq) => (
-              <div key={eq.id} className="flex items-center justify-between rounded-lg p-2" style={{ background: 'var(--color-surface-2)' }}>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--color-text)' }}>{eq.nombre}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
-                    ID: {eq.id} · {emailDe(eq.usuario_id)}
-                  </p>
+              <div key={eq.id} className="rounded-lg p-3 space-y-2" style={{ background: 'var(--color-surface-2)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs" style={{ color: 'var(--color-text)' }}>{eq.nombre}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>ID: {eq.id}</p>
+                  </div>
+                  <button onClick={() => desvincularEquipo(eq.id)} style={{ color: 'var(--color-danger)' }}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <button onClick={() => desvincularEquipo(eq.id)} style={{ color: 'var(--color-danger)' }}>
-                  <Trash2 size={14} />
-                </button>
+
+                <div>
+                  <label className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Dueño principal</label>
+                  <select
+                    value={eq.usuario_id}
+                    onChange={(e) => reasignarDueno(eq.id, e.target.value)}
+                    className="w-full text-[11px] rounded px-2 py-1 mt-0.5"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                  >
+                    {usuarios.map((u) => (
+                      <option key={u.id} value={u.id}>{u.email}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Usuarios adicionales con acceso (ej. otra persona de la misma casa)</label>
+                  <div className="space-y-1 mt-1">
+                    {(compartidos[eq.id] || []).map((usuarioId) => (
+                      <div key={usuarioId} className="flex items-center justify-between text-[11px] rounded px-2 py-1" style={{ background: 'var(--color-surface)' }}>
+                        <span style={{ color: 'var(--color-text)' }}>{emailDe(usuarioId)}</span>
+                        <button onClick={() => quitarCompartido(eq.id, usuarioId)} style={{ color: 'var(--color-danger)' }}>
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-1 mt-1">
+                    <select
+                      value={nuevoCompartido[eq.id] || ''}
+                      onChange={(e) => setNuevoCompartido({ ...nuevoCompartido, [eq.id]: e.target.value })}
+                      className="flex-1 text-[11px] rounded px-2 py-1"
+                      style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                    >
+                      <option value="">Agregar usuario...</option>
+                      {usuarios
+                        .filter((u) => u.id !== eq.usuario_id && !(compartidos[eq.id] || []).includes(u.id))
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>{u.email}</option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={() => agregarCompartido(eq.id)}
+                      className="text-[11px] px-2 rounded-lg"
+                      style={{ background: 'var(--color-primary)', color: '#0b1220' }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
