@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, QrCode } from 'lucide-react'
+import { Check, QrCode, Calculator, CalendarClock } from 'lucide-react'
 import { getConfig } from '../lib/config'
 import { useAuth } from '../context/AuthContext'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
@@ -8,6 +8,7 @@ export default function Plans() {
   const cfg = getConfig()
   const { user } = useAuth()
   const [planElegido, setPlanElegido] = useState(null) // 'basico' | 'premium' | null
+  const [facturaActual, setFacturaActual] = useState('')
   const [tieneEquipo, setTieneEquipo] = useState(true) // asume que sí hasta confirmar, para no mostrar el cobro del equipo de más
 
   useEffect(() => {
@@ -26,6 +27,14 @@ export default function Plans() {
   // ni ningún equipo vinculado — ahí sí corresponde cobrar el equipo físico.
   const esAltaNueva = !user?.pagoConfirmado && !tieneEquipo
 
+  const facturaNum = Number(facturaActual) || 0
+  const ahorroMensualEstimado = facturaNum * (cfg.porcentajeAhorro / 100)
+  const mesesRecuperacion = ahorroMensualEstimado > 0 ? cfg.precioEquipo / ahorroMensualEstimado : null
+
+  const diasParaVencer = user?.proximoPago
+    ? Math.ceil((new Date(user.proximoPago) - new Date(new Date().toDateString())) / 86400000)
+    : null
+
   function abrirWhatsapp(plan) {
     const nombrePlan = cfg.plans[plan].nombre
     const precioSuscripcion = cfg.plans[plan].precio
@@ -38,6 +47,56 @@ export default function Plans() {
 
   return (
     <div className="space-y-4">
+      {/* Recordatorio de vencimiento — solo para cuentas con pago confirmado */}
+      {user?.pagoConfirmado && diasParaVencer !== null && (
+        <div
+          className="rounded-xl p-3 flex items-center gap-2"
+          style={{
+            background: diasParaVencer <= 3 ? 'rgba(244,85,79,0.1)' : 'var(--color-surface-2)',
+            border: `1px solid ${diasParaVencer <= 3 ? 'var(--color-danger)' : 'var(--color-border)'}`,
+          }}
+        >
+          <CalendarClock size={16} style={{ color: diasParaVencer <= 3 ? 'var(--color-danger)' : 'var(--color-text-dim)' }} />
+          <p className="text-xs" style={{ color: diasParaVencer <= 3 ? 'var(--color-danger)' : 'var(--color-text)' }}>
+            {diasParaVencer < 0
+              ? `Tu plan venció hace ${Math.abs(diasParaVencer)} día(s) — renueva para seguir con acceso a datos reales.`
+              : diasParaVencer === 0
+              ? 'Tu plan vence hoy.'
+              : `Tu plan vence en ${diasParaVencer} día(s) (${user.proximoPago}).`}
+          </p>
+        </div>
+      )}
+
+      {/* Calculadora de ahorro — para quien todavía está decidiendo */}
+      {(!user || !user.pagoConfirmado) && (
+        <div className="rounded-2xl p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          <p className="text-xs font-semibold mb-2 flex items-center gap-1.5" style={{ color: 'var(--color-text)' }}>
+            <Calculator size={14} /> Calcula tu ahorro estimado
+          </p>
+          <label className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>¿Cuánto pagas de luz al mes? ({cfg.currency})</label>
+          <input
+            type="number" value={facturaActual} onChange={(e) => setFacturaActual(e.target.value)}
+            placeholder="Ej: 250"
+            className="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+          />
+          {facturaNum > 0 && (
+            <div className="mt-3 text-xs space-y-1" style={{ color: 'var(--color-text)' }}>
+              <p>
+                Ahorro estimado: <b style={{ color: 'var(--color-primary)' }}>{cfg.currency} {ahorroMensualEstimado.toFixed(0)}/mes</b>
+                <span style={{ color: 'var(--color-text-dim)' }}> (~{cfg.porcentajeAhorro}%)</span>
+              </p>
+              {mesesRecuperacion && (
+                <p style={{ color: 'var(--color-text-dim)' }}>
+                  Tu equipo (Bs {cfg.precioEquipo}) se recuperaría en aprox. <b style={{ color: 'var(--color-text)' }}>{Math.ceil(mesesRecuperacion)} mes(es)</b>.
+                </p>
+              )}
+              <p className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Estimación, no un ahorro garantizado.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Planes de suscripción</h2>
       {Object.entries(cfg.plans).map(([key, plan]) => {
         const esPlanActual = user?.plan === key

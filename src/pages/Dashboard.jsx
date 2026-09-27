@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { AlertTriangle, TrendingUp, Zap } from 'lucide-react'
-import { getDevices, getRealtimeReading, getHistorial, segmentoDePlan } from '../lib/demoData'
+import { AlertTriangle, TrendingUp, Zap, PiggyBank } from 'lucide-react'
+import { getDevices, getRealtimeReading, getHistorial, segmentoDePlan, calcularAhorroEstimadoKwh } from '../lib/demoData'
 import { getConfig } from '../lib/config'
 import { formatearPotencia } from '../lib/format'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
@@ -75,6 +75,9 @@ export default function Dashboard() {
   const kwhTotalPeriodo = historialTotal.reduce((a, h) => a + h.kwh, 0)
   const costoTotalPeriodo = kwhTotalPeriodo * cfg.tarifaPorKwh
 
+  const ahorroKwh = useMemo(() => calcularAhorroEstimadoKwh(devicesDemo, dias), [devicesDemo, dias])
+  const ahorroBs = ahorroKwh * cfg.tarifaPorKwh
+
   const lecturasDemo = devicesDemo.map((d) => ({ device: d, reading: getRealtimeReading(d) }))
 
   const alertasDemo = devicesDemo
@@ -99,6 +102,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
+      {/* Ahorro acumulado — solo en modo demostración, por comparación de escenarios */}
+      {!tieneAcceso && ahorroKwh > 0 && (
+        <section
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ background: 'rgba(34,211,167,0.12)', border: '1px solid var(--color-primary)' }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--color-primary)' }}>
+            <PiggyBank size={20} color="#0b1220" />
+          </div>
+          <div>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Ahorro estimado ({RANGOS.find((r) => r.id === rango).label.toLowerCase()})</p>
+            <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
+              {cfg.currency} {ahorroBs.toFixed(2)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-dim)' }}>({ahorroKwh.toFixed(1)} kWh)</span>
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* A. Historial de consumo — solo en modo demostración por ahora */}
       {!tieneAcceso && (
         <section className="rounded-2xl p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>

@@ -80,6 +80,7 @@ export default function Admin() {
       tarifaPorKwh: Number(cfg.tarifaPorKwh),
       whatsappNumero: cfg.whatsappNumero,
       precioEquipo: Number(cfg.precioEquipo),
+      porcentajeAhorro: Number(cfg.porcentajeAhorro),
       modeloIA: cfg.modeloIA,
       infoAdicional: cfg.infoAdicional,
     })
@@ -121,6 +122,7 @@ export default function Admin() {
         <Field label="Tarifa eléctrica (por kWh)" value={cfg.tarifaPorKwh} type="number" onChange={(v) => setCfg({ ...cfg, tarifaPorKwh: v })} />
         <Field label="WhatsApp para confirmar pagos (código país + número, sin +)" value={cfg.whatsappNumero} onChange={(v) => setCfg({ ...cfg, whatsappNumero: v })} />
         <Field label="Precio del equipo físico (pago único, Bs)" value={cfg.precioEquipo} type="number" onChange={(v) => setCfg({ ...cfg, precioEquipo: v })} />
+        <Field label="% de ahorro estimado (para la calculadora en Planes)" value={cfg.porcentajeAhorro} type="number" onChange={(v) => setCfg({ ...cfg, porcentajeAhorro: v })} />
         <div>
           <label className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Modelo de IA del Asistente</label>
           <select
