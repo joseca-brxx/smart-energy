@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { AlertTriangle, TrendingUp, Zap, PiggyBank } from 'lucide-react'
-import { getDevices, getRealtimeReading, getHistorial, segmentoDePlan, calcularAhorroEstimadoKwh } from '../lib/demoData'
+import { getDevices, getRealtimeReading, getHistorial, totalKwh, segmentoDePlan } from '../lib/demoData'
 import { getConfig } from '../lib/config'
 import { formatearPotencia } from '../lib/format'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const tieneAcceso = Boolean(user?.pagoConfirmado)
   const segmento = segmentoDePlan(user?.plan)
   const cfg = getConfig()
-  const [rango, setRango] = useState('semanal')
+  const [rango, setRango] = useState('mensual')
   const dias = RANGOS.find((r) => r.id === rango).dias
 
   // ---- Modo real (pago confirmado): equipos vinculados a esta cuenta ----
@@ -75,7 +75,15 @@ export default function Dashboard() {
   const kwhTotalPeriodo = historialTotal.reduce((a, h) => a + h.kwh, 0)
   const costoTotalPeriodo = kwhTotalPeriodo * cfg.tarifaPorKwh
 
-  const ahorroKwh = useMemo(() => calcularAhorroEstimadoKwh(devicesDemo, dias), [devicesDemo, dias])
+  // Ahorro POTENCIAL: cuánto se podría ahorrar si se reduce 1 hora diaria
+  // de uso del equipo que más consume (siempre sobre 30 días, para que el
+  // número no cambie según el filtro Diario/Semanal/Mensual elegido).
+  const consumo30dias = useMemo(
+    () => devicesDemo.map((d) => ({ device: d, kwhMes: totalKwh(getHistorial(d, 30)) })).sort((a, b) => b.kwhMes - a.kwhMes),
+    [devicesDemo]
+  )
+  const topConsumidor = consumo30dias[0]
+  const ahorroKwh = topConsumidor ? topConsumidor.device.kwBase * 1 * 30 : 0
   const ahorroBs = ahorroKwh * cfg.tarifaPorKwh
 
   const lecturasDemo = devicesDemo.map((d) => ({ device: d, reading: getRealtimeReading(d) }))
@@ -102,7 +110,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      {/* Ahorro acumulado — solo en modo demostración, por comparación de escenarios */}
+      {/* Ahorro potencial — solo en modo demostración, basado en el equipo de mayor consumo */}
       {!tieneAcceso && ahorroKwh > 0 && (
         <section
           className="rounded-2xl p-4 flex items-center gap-3"
@@ -112,10 +120,11 @@ export default function Dashboard() {
             <PiggyBank size={20} color="#0b1220" />
           </div>
           <div>
-            <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Ahorro estimado ({RANGOS.find((r) => r.id === rango).label.toLowerCase()})</p>
+            <p className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>Podrías ahorrar hasta (por mes)</p>
             <p className="text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
-              {cfg.currency} {ahorroBs.toFixed(2)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-dim)' }}>({ahorroKwh.toFixed(1)} kWh)</span>
+              {cfg.currency} {ahorroBs.toFixed(0)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-dim)' }}>optimizando "{topConsumidor.device.nombre}"</span>
             </p>
+            <p className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Estimación, no un ahorro garantizado.</p>
           </div>
         </section>
       )}
