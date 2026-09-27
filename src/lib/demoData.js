@@ -107,3 +107,18 @@ export function getHistorial(device, dias = 30) {
 export function totalKwh(historial) {
   return historial.reduce((acc, h) => acc + h.kwh, 0)
 }
+
+// Estimación de ahorro: compara los equipos que están en escenario
+// 'ahorro' contra lo que habrían consumido en escenario 'normal', en el
+// mismo período. Es una comparación entre escenarios simulados, no una
+// medición — por eso siempre se muestra etiquetada como "estimado".
+export function calcularAhorroEstimadoKwh(devices, dias = 30) {
+  let kwhAhorrados = 0
+  devices.forEach((d) => {
+    if (d.escenario !== 'ahorro') return
+    const conAhorro = totalKwh(getHistorial(d, dias))
+    const sinAhorro = totalKwh(getHistorial({ ...d, escenario: 'normal' }, dias))
+    kwhAhorrados += Math.max(0, sinAhorro - conAhorro)
+  })
+  return kwhAhorrados
+}

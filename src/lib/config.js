@@ -22,6 +22,7 @@ const DEFAULT_CONFIG = {
   precioEquipo: 300, // Bs, pago único por el enchufe inteligente
   modeloIA: 'gemini-3.8-flash', // modelo de IA del Asistente Smart Energy
   infoAdicional: '', // texto libre que el admin puede agregar para que el Asistente lo sepa
+  porcentajeAhorro: 20, // % de ahorro estimado que se muestra en la calculadora de Planes
   plans: {
     basico: {
       nombre: 'Básico · Hogares',
@@ -99,6 +100,7 @@ async function subirASupabase(config) {
       precio_equipo: config.precioEquipo,
       modelo_ia: config.modeloIA,
       info_adicional: config.infoAdicional,
+      porcentaje_ahorro: config.porcentajeAhorro,
       plan_basico_precio: config.plans.basico.precio,
       plan_premium_precio: config.plans.premium.precio,
     })
@@ -123,6 +125,7 @@ export async function refrescarConfig() {
     precioEquipo: data.precio_equipo ?? actual.precioEquipo,
     modeloIA: data.modelo_ia ?? actual.modeloIA,
     infoAdicional: data.info_adicional ?? actual.infoAdicional,
+    porcentajeAhorro: data.porcentaje_ahorro ?? actual.porcentajeAhorro,
     plans: {
       basico: { ...actual.plans.basico, precio: data.plan_basico_precio ?? actual.plans.basico.precio },
       premium: { ...actual.plans.premium, precio: data.plan_premium_precio ?? actual.plans.premium.precio },
